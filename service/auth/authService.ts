@@ -1,10 +1,10 @@
-import { createSupabase } from "../supabase/configureSupabase.js";
+import { createSignInSupabase } from "../supabase/configureSupabase.js";
 
 const scopes = ["email", "profile"];
 
 export const handleSignIn = async ({ res }) => {
   try {
-    const supabase = createSupabase();
+    const supabase = createSignInSupabase();
     const { data: callbackData, error: callbackError } =
       await supabase.auth.signInWithOAuth({
         provider: "google",

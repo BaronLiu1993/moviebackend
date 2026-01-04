@@ -1,7 +1,14 @@
 import { Router } from "express";
+import { createSupbaseClient } from "../../service/supabase/configureSupabase.js";
 
-const router = Router()
+// Webscrape new professors
+type SelectFilmRequestType = {
+  accessToken: string;
+};
 
-router.get("/generate" , (req, res) => {
-    
-})
+export const selectFilms = ({ accessToken }: SelectFilmRequestType) => {
+  const supabase = createSupbaseClient({ accessToken });
+  const { data, error } = supabase
+    .from("")
+    .select()
+};
