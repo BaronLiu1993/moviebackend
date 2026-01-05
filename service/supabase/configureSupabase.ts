@@ -7,9 +7,7 @@ type CreateSupabaseClientType = {
   accessToken: string;
 };
 
-export const createServerSideClient = {};
-
-export const createSupbaseClient = ({
+export const createSupabaseClient = ({
   accessToken,
 }: CreateSupabaseClientType) => {
   if (!SUPABASE_ANON_KEY || !SUPABASE_URL) {
