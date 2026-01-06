@@ -1,47 +1,62 @@
-import jwt from "jsonwebtoken";
-import { createClient } from "@supabase/supabase-js";
-import { type NextFunction, type Request, type Response } from "express";
+import { type Request, type Response, type NextFunction } from "express";
+import jwt, { type JwtPayload } from "jsonwebtoken";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
-const SUPABASE_JWT_ALGORITHM = process.env.SUPABASE_JWT_ALGORITHM;
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+// Add these types to attach custom fields to Express Request
+declare module "express-serve-static-core" {
+  interface Request {
+    user?: JwtPayload | string;
+    token?: string;
+    supabaseClient?: SupabaseClient;
+  }
+}
 
-export async function verifyToken(req: Request, res: Response, next: NextFunction) {
+// Replace these with your environment variables
+const SUPABASE_URL = process.env.SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY!;
+const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET!;
+const SUPABASE_JWT_ALGORITHM = process.env.SUPABASE_JWT_ALGORITHM as "HS256" | "HS512" | "RS256"; // adjust if needed
+
+export async function verifyToken(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_JWT_SECRET || !SUPABASE_JWT_ALGORITHM) {
+      throw new Error("Supabase key or JWT config missing in environment");
+    }
+
     const authHeader = req.headers.authorization;
-    
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      throw new Error("Supabase Key Missing in Production")
+    if (!authHeader) {
+      res.status(401).json({ message: "Missing Authorization header" });
+      return;
     }
 
-    if (!authHeader) {
-      return res.status(401).json({ message: "Missing Authorization header" });
-    }
-  
     const token = authHeader.split(" ")[1];
     if (!token) {
-      return res.status(401).json({ message: "Missing token" });
+      res.status(401).json({ message: "Missing token" });
+      return;
     }
-  
-    try {
-      const payload = jwt.verify(token, SUPABASE_JWT_SECRET, {
-        algorithms: [SUPABASE_JWT_ALGORITHM],
-      });
-  
-      const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+
+    const payload = jwt.verify(token, SUPABASE_JWT_SECRET, {
+      algorithms: [SUPABASE_JWT_ALGORITHM],
+    });
+
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      });
-  
-      req.user = payload;
-      req.token = token;
-      req.supabaseClient = supabaseClient;
-  
-      next();
-    } catch (err) {
-      return res.status(401).json({ message: "Invalid or expired token" });
-    }
+      },
+    });
+
+    req.user = payload;
+    req.token = token;
+    req.supabaseClient = supabaseClient;
+
+    next();
+  } catch (err) {
+    res.status(401).json({ message: "Invalid or expired token" });
   }
+}
