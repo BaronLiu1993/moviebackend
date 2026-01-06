@@ -1,10 +1,14 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSignInSupabase, createSupabaseClient } from "../supabase/configureSupabase.js";
+import OpenAI from "openai";
 
 const scopes = ["email", "profile"];
 
 type ProfileChangeType = {
-  accessToken: string
+  inputString: string
 }
+
+const openAIClient = new OpenAI()
 
 export const handleSignIn = async (): Promise<string> => {
   const supabase = createSignInSupabase();
@@ -20,12 +24,14 @@ export const handleSignIn = async (): Promise<string> => {
   if (callbackError || !callbackData) {
     throw new Error("Sign In Callback Error");
   }
-
   return callbackData.url;
 };
 
-export const generateInterestProfile = async ({accessToken}: ProfileChangeType): string => {
-  const supabase = createSupabaseClient({accessToken});
-  
-  
+export const generateInterestProfileVector = async ({inputString}: ProfileChangeType) => {
+  const response = await openAIClient.embeddings.create({
+    model: "text-embedding-3-small",
+    input: inputString,
+    encoding_format: "float"
+  })
+  return response.data[0]?.embedding
 }

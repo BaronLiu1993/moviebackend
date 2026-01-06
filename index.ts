@@ -3,6 +3,7 @@ import authRouter from "./router/auth/authRouter.js"
 import queryRouter from "./router/query/queryRouter.js"
 
 const app = express()
+
 app.use(authRouter)
 app.use(queryRouter)
 

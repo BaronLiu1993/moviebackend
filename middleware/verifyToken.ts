@@ -2,7 +2,6 @@ import { type Request, type Response, type NextFunction } from "express";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-// Add these types to attach custom fields to Express Request
 declare module "express-serve-static-core" {
   interface Request {
     user?: JwtPayload | string;
@@ -11,7 +10,6 @@ declare module "express-serve-static-core" {
   }
 }
 
-// Replace these with your environment variables
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY!;
 const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET!;
@@ -58,5 +56,6 @@ export async function verifyToken(
     next();
   } catch (err) {
     res.status(401).json({ message: "Invalid or expired token" });
+    return;
   }
 }

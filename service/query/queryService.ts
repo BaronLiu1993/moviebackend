@@ -1,17 +1,40 @@
-import { createSupabaseClient } from "../../service/supabase/configureSupabase.js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-// Webscrape new professors
 type SelectFilmRequestType = {
-  accessToken: string;
+  supabaseClient: SupabaseClient
 };
 
-export const selectFilms = async ({ accessToken }: SelectFilmRequestType) => {
-  const supabase = createSupabaseClient({ accessToken });
-  const { data: filmData, error: filmError } = await supabase.from("").select();
+type DeleteFilmRequestType = {
+  supabaseClient: SupabaseClient
+};
+
+type RateFilmRequestType = {
+  supabaseClient: SupabaseClient
+  userId: string;
+  rating: number;
+  note: string;
+}
+
+export const getRecommendedFilms = async ({supabaseClient}: SelectFilmRequestType) => {
+  const response = supabaseClient.rpc("", )
+  return response
+}
+
+// Get All Films
+export const getFilms = async ({ supabaseClient }: SelectFilmRequestType) => {
+  const { data: filmData, error: filmError } = await supabaseClient.from("").select();
   if (filmError) {
     throw new Error("Failed to Get Films");
   }
   return filmData;
 };
 
-export const 
+export const rateFilms = async ({ supabaseClient, rating, note, userId}: RateFilmRequestType) => {
+  const { error: insertionError } = await supabaseClient.from("Ratings").insert({rating, note, userId})
+  if (insertionError) {
+    throw new Error("Failed to Insert")
+  }
+}
+
+export const deleteFilms = async ({supabaseClient}: DeleteFilmRequestType) => {
+} 

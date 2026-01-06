@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { handleSignIn } from "../../service/auth/authService.js";
+import {
+  generateInterestProfileVector,
+  handleSignIn,
+} from "../../service/auth/authService.js";
 import { createSignInSupabase } from "../../service/supabase/configureSupabase.js";
 import { verifyToken } from "../../middleware/verifyToken.js";
 import { createSupabaseClient } from "../../service/supabase/configureSupabase.js";
@@ -12,7 +15,7 @@ router.post("/signup-with-google", async (req, res) => {
     if (callbackURL) {
       res.redirect(callbackURL);
     }
-    return res.status(200).json({ message: "" });
+    return res.status(200).json({ message: "Signed In" });
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
   }
@@ -21,6 +24,7 @@ router.post("/signup-with-google", async (req, res) => {
 router.post("/oauth2callback", async (req, res) => {
   const code = req.body.code;
   const supabase = createSignInSupabase();
+
   try {
     const { data: tokenData, error: tokenDataError } =
       await supabase.auth.exchangeCodeForSession(code);
@@ -49,8 +53,8 @@ router.post("/oauth2callback", async (req, res) => {
         .from("User_Profiles")
         .insert({
           user_id: user.id,
-          student_email: user.email,
-          student_name: user.user_metadata?.full_name,
+          email: user.email,
+          name: user.user_metadata?.full_name,
         });
 
       if (tokenInsertionError) {
@@ -74,12 +78,38 @@ router.post("/oauth2callback", async (req, res) => {
 });
 
 router.post("/register", verifyToken, async (req, res) => {
-  const {} = req.body
+  // Input String is the Top Genres + Favourite Shows Mixed Together
+  const { genres, topMovies } = req.body;
+  const genreString = genres.join(' ')
+  const topMovieString = topMovies.join(' ')
+  const inputString = genreString + topMovieString;
+
+  const supabaseClient = req.supabaseClient;
+  if (!supabaseClient || !inputString) {
+    return res.status(400).json({ message: "Missing Imports" });
+  }
+
+  const embedding = await generateInterestProfileVector({ inputString });
+
   try {
+    // Profile embedding is the embedding for each individual person
+    const { error: insertionError } = await supabaseClient
+      .from("User_Profiles")
+      .insert({
+        profile_embedding: embedding,
+        completed_registration: true,
+        genre: genres
+      })
+  
     
+    if (insertionError) {
+      return res.status(400).json({ message: "Failed To Insert " });
+    }
+
+    return res.status(200).json({message: "Inserted"})
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-export default router
+export default router;
