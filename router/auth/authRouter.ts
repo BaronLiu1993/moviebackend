@@ -1,10 +1,8 @@
 import { Router } from "express";
 import { handleSignIn } from "../../service/auth/authService.js";
-import {
-  createSignInSupabase,
-  createSupabaseClient,
-} from "../../service/supabase/configureSupabase.js";
+import { createSignInSupabase } from "../../service/supabase/configureSupabase.js";
 import { verifyToken } from "../../middleware/verifyToken.js";
+import { createSupabaseClient } from "../../service/supabase/configureSupabase.js";
 
 const router = Router();
 
@@ -14,7 +12,7 @@ router.post("/signup-with-google", async (req, res) => {
     if (callbackURL) {
       res.redirect(callbackURL);
     }
-    return res.status(200).json({ message: "Successfully Redirected" });
+    return res.status(200).json({ message: "" });
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
   }
@@ -45,7 +43,7 @@ router.post("/oauth2callback", async (req, res) => {
       .eq("user_id", user.id)
       .single();
 
-    // Case if user does not exist that means they need to register
+    // Case if user does not exist that means they need to be register
     if (userDoesNotExist) {
       const { error: tokenInsertionError } = await supabaseClient
         .from("User_Profiles")
@@ -63,7 +61,7 @@ router.post("/oauth2callback", async (req, res) => {
         accessToken: session.access_token,
         refreshToken: session.refresh_token,
       });
-      // User exists and we need to send them back
+      // User exists and we need to send just log them in
     } else {
       return res.status(200).json({
         accessToken: session.access_token,
@@ -76,8 +74,12 @@ router.post("/oauth2callback", async (req, res) => {
 });
 
 router.post("/register", verifyToken, async (req, res) => {
+  const {} = req.body
   try {
+    
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+export default router
