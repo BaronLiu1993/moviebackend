@@ -10,6 +10,10 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 export async function verifyToken(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers.authorization;
     
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      throw new Error("Supabase Key Missing in Production")
+    }
+
     if (!authHeader) {
       return res.status(401).json({ message: "Missing Authorization header" });
     }

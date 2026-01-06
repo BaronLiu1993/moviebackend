@@ -1,6 +1,10 @@
-import { createSignInSupabase } from "../supabase/configureSupabase.js";
+import { createSignInSupabase, createSupabaseClient } from "../supabase/configureSupabase.js";
 
 const scopes = ["email", "profile"];
+
+type ProfileChangeType = {
+  accessToken: string
+}
 
 export const handleSignIn = async (): Promise<string> => {
   const supabase = createSignInSupabase();
@@ -19,3 +23,9 @@ export const handleSignIn = async (): Promise<string> => {
 
   return callbackData.url;
 };
+
+export const generateInterestProfile = async ({accessToken}: ProfileChangeType): string => {
+  const supabase = createSupabaseClient({accessToken});
+  
+  
+}

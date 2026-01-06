@@ -1,6 +1,4 @@
-import { error } from "node:console";
 import { createSupabaseClient } from "../../service/supabase/configureSupabase.js";
-import { type Response } from "express";
 
 // Webscrape new professors
 type SelectFilmRequestType = {
@@ -15,3 +13,5 @@ export const selectFilms = async ({ accessToken }: SelectFilmRequestType) => {
   }
   return filmData;
 };
+
+export const 
