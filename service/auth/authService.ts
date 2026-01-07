@@ -1,14 +1,19 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { createSignInSupabase, createSupabaseClient } from "../supabase/configureSupabase.js";
+import { createSignInSupabase } from "../supabase/configureSupabase.js";
 import OpenAI from "openai";
+import dotenv from "dotenv"
+
+dotenv.config()
 
 const scopes = ["email", "profile"];
+const OPENAI_KEY=process.env.OPENAI_API_KEY
 
 type ProfileChangeType = {
   inputString: string
 }
 
-const openAIClient = new OpenAI()
+const OpenAIClient = new OpenAI({
+  apiKey: OPENAI_KEY,
+});
 
 export const handleSignIn = async (): Promise<string> => {
   const supabase = createSignInSupabase();
@@ -28,7 +33,7 @@ export const handleSignIn = async (): Promise<string> => {
 };
 
 export const generateInterestProfileVector = async ({inputString}: ProfileChangeType) => {
-  const response = await openAIClient.embeddings.create({
+  const response = await OpenAIClient.embeddings.create({
     model: "text-embedding-3-small",
     input: inputString,
     encoding_format: "float"
