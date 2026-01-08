@@ -29,12 +29,6 @@ export const getFilms = async ({ supabaseClient }: SelectFilmRequestType) => {
   return filmData;
 };
 
-export const rateFilms = async ({ supabaseClient, rating, note, userId}: RateFilmRequestType) => {
-  const { error: insertionError } = await supabaseClient.from("Ratings").insert({rating, note, userId})
-  if (insertionError) {
-    throw new Error("Failed to Insert")
-  }
-}
 
 export const deleteFilms = async ({supabaseClient}: DeleteFilmRequestType) => {
 } 

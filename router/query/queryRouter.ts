@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const router = Router();
 
-router.get("/", verifyToken, async (req, res) => {
+router.get("/search", verifyToken, async (req, res) => {
     const { search } = req.body
     const supabaseClient = req.supabaseClient
     if (!supabaseClient || !search) {
@@ -18,6 +18,9 @@ router.get("/", verifyToken, async (req, res) => {
         return res.status(500).json({message: "Internal Server Error"})
     }
 })
+
+
+
 
 
 
