@@ -20,5 +20,5 @@ export const getRecommendedFilms = async ({supabaseClient}: SelectFilmRequestTyp
 // Get All Films
 export const getFilms = async ({ supabaseClient }: SelectFilmRequestType) => {
   // Let them search by 
-  
+  const fetchData = 
 };

@@ -24,6 +24,9 @@ type InsertRatingType = {
   note: string;
   userId: UUID;
   filmId: UUID;
+  genres: string[];
+  summary: string
+  keywords: string[]
 };
 
 type UpdateRatingType = {
@@ -138,7 +141,8 @@ export const insertRating = async ({
   const check = await checkFilmExists({supabaseClient, filmId})
 
   if (check == true) {
-    generateFilmEmbedding({})
+    const inputString = filmName + 
+    generateFilmEmbedding({ inputString, supbaseClient})
   }
 
 
