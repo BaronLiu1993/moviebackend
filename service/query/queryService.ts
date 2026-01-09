@@ -20,14 +20,5 @@ export const getRecommendedFilms = async ({supabaseClient}: SelectFilmRequestTyp
 // Get All Films
 export const getFilms = async ({ supabaseClient }: SelectFilmRequestType) => {
   // Let them search by 
-  const { data: filmData, error: filmError } = await supabaseClient
-    .from("Films")
-    .select("title, cast, id, director, genre, poster_url, release_year")
-    .limit(100);
-
-  if (filmError) {
-    throw new Error("Failed to Get Films");
-  }
-
-  return filmData;
+  
 };

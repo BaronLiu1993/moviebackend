@@ -1,5 +1,17 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
+import OpenAI from "openai";
+import dotenv from "dotenv"
+
+dotenv.config()
+
+const OPENAI_KEY=process.env.OPENAI_API_KEY
+
+// Types
+type RatingType = {
+  supabaseClient: SupabaseClient;
+  filmId: UUID;
+};
 
 type SelectRatingType = {
   supabaseClient: SupabaseClient;
@@ -11,7 +23,7 @@ type InsertRatingType = {
   rating: number;
   note: string;
   userId: UUID;
-  filmId: number;
+  filmId: UUID;
 };
 
 type UpdateRatingType = {
@@ -25,12 +37,20 @@ type DeleteRatingType = {
   ratingId: UUID;
 };
 
+type EmbeddingRequestType = {
+  supbaseClient: SupabaseClient
+  inputString: string
+}
+
 type VectorType = Float32Array;
 
 type DotProductType = {
   u: VectorType;
   m: VectorType;
 };
+
+// OpenAI Client
+const OpenAIClient = new OpenAI({apiKey: OPENAI_KEY})
 
 const computeDotProduct = ({ u, m }: DotProductType): number => {
   if (u.length !== m.length) {
@@ -41,6 +61,38 @@ const computeDotProduct = ({ u, m }: DotProductType): number => {
     sum += u[i]! * m[i]!;
   }
   return sum;
+};
+
+const checkFilmExists = async ({
+  supabaseClient,
+  filmId,
+}: RatingType): Promise<boolean> => {
+  const { error } = await supabaseClient
+    .from("")
+    .select("film_id")
+    .eq("film_id", filmId);
+
+  if (error) {
+    return false;
+  }
+
+  return true;
+};
+
+export const generateFilmEmbedding = async ({
+  inputString, supbaseClient
+}: EmbeddingRequestType) => {
+  const response = await OpenAIClient.embeddings.create({
+    model: "text-embedding-3-small",
+    input: inputString,
+    encoding_format: "float"
+  })
+
+  const { data, error} = await supbaseClient
+    .from("Films")
+    .insert({})
+
+  return response.data[0]?.embedding
 };
 
 export const getRatings = async ({
@@ -82,14 +134,20 @@ export const insertRating = async ({
     .select("profile_embedding")
     .eq("user_id", userId)
     .single();
+  
+  const check = await checkFilmExists({supabaseClient, filmId})
+
+  if (check == true) {
+    generateFilmEmbedding({})
+  }
+
 
   // Fetch Film Embeddings
-  const { data: filmVector, error: filmVectorFetchError } =
-    await supabaseClient
-      .from("Film")
-      .select("film_embedding")
-      .eq("film_id", filmId)
-      .single();
+  const { data: filmVector, error: filmVectorFetchError } = await supabaseClient
+    .from("Film")
+    .select("film_embedding")
+    .eq("film_id", filmId)
+    .single();
 
   // Check for errors and missing data
   if (userVectorFetchError || filmVectorFetchError) {
@@ -127,7 +185,8 @@ export const insertRating = async ({
   // Update user vector using gradient descent
   const newVector = new Float32Array(profileEmbedding.length);
   for (let i = 0; i < profileEmbedding.length; i++) {
-    newVector[i] = profileEmbedding[i]! + error * learningRate * filmEmbedding[i]!;
+    newVector[i] =
+      profileEmbedding[i]! + error * learningRate * filmEmbedding[i]!;
   }
 
   // Update database

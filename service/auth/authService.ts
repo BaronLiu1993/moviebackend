@@ -9,8 +9,6 @@ dotenv.config()
 const scopes = ["email", "profile"];
 const OPENAI_KEY=process.env.OPENAI_API_KEY
 
-
-
 interface ProfileType {
   userId: UUID
   supabaseClient: SupabaseClient
