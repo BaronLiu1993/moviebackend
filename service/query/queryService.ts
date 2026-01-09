@@ -5,7 +5,7 @@ type SelectFilmRequestType = {
   supabaseClient: SupabaseClient
 };
 
-export const bookmarkFilm = async ({supabase}) => {
+export const bookmarkFilm = async () => {
 
 }
 

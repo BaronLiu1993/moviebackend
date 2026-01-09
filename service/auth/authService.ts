@@ -9,17 +9,31 @@ dotenv.config()
 const scopes = ["email", "profile"];
 const OPENAI_KEY=process.env.OPENAI_API_KEY
 
-type ProfileChangeType = {
+
+
+interface ProfileType {
+  userId: UUID
+  supabaseClient: SupabaseClient
+}
+
+interface SelectProfileType extends ProfileType {
+  friendId: UUID
+}
+
+interface ProfileChangeType extends ProfileType {
   inputString: string
 }
 
-type SelectProfileType = {
+type FriendRequestType = {
   userId: UUID
   friendId: UUID
   supabaseClient: SupabaseClient
 }
 
-type FriendRequest
+type ChangeFriendStatusType = {
+  requestId: UUID
+  supabaseClient: SupabaseClient
+}
 
 
 const OpenAIClient = new OpenAI({
@@ -51,7 +65,25 @@ export const handleSignIn = async (): Promise<string> => {
   return callbackData.url;
 };
 
-export const generateInterestProfileVector = async ({inputString}: ProfileChangeType) => {
+// Every User Can Only Generate Once, Check
+const checkRegistration = async ({userId, supabaseClient}: ProfileType) => {
+  const { data: registrationCheck, error: checkError } = await supabaseClient
+    .from("User_Profiles")
+    .select("finished_registration")
+    .eq("user_id", userId)
+    .single()
+  if (checkError) {
+    throw new Error("Failed to get registration")
+  }
+
+  return registrationCheck.finished_registration as boolean
+}
+
+export const generateInterestProfileVector = async ({inputString, userId, supabaseClient}: ProfileChangeType) => {
+  const check = await checkRegistration({userId, supabaseClient})
+  if (check == true) {
+    throw new Error("Already Registered")
+  }
   const response = await OpenAIClient.embeddings.create({
     model: "text-embedding-3-small",
     input: inputString,
@@ -60,15 +92,46 @@ export const generateInterestProfileVector = async ({inputString}: ProfileChange
   return response.data[0]?.embedding
 }
 
-export const sendFriendRequest = async ({userId, friendId, supabaseClient}) => {
+
+
+export const sendFriendRequest = async ({userId, friendId, supabaseClient}: FriendRequestType) => {
   
+  const { error: sendError } = await supabaseClient
+    .from("Friends")
+    .insert({user_id: userId, friend_id: friendId, status: 'pending'})
+  if (sendError) {
+    throw new Error("Failed to Send Friend Request")
+  }
 }
 
-export const acceptFriendRequest = async ({userId, friendId, supabaseClient}) => {
+export const acceptFriendRequest = async ({requestId, supabaseClient}: ChangeFriendStatusType) => {
+  const { error: acceptError } = await supabaseClient
+    .from("Friends")
+    .update({status: 'accepted'})
+    .eq("request_id", requestId)
+  if (acceptError) {
+    throw new Error("Failed To Accept Friend")
+  }
+}
+
+export const rejectFriendRequest = async ({requestId, supabaseClient}: ChangeFriendStatusType) => {
+  const { error: rejectError } = await supabaseClient
+    .from("Friends")
+    .delete()
+    .eq("request_id", requestId)
+
+  if (rejectError) {
+    throw new Error("Failed To Delete/Reject")
+  }
+}
+
+
+// I need to return the request Id here
+export const getFollowers = async ({}) => {
 
 }
 
-export const rejectFriendRequest = async ({userId, friendId, supabaseClient}) => {
+export const getFollowing = async({}) => {
 
 }
 

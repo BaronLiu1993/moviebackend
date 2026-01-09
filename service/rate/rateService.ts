@@ -104,7 +104,6 @@ export const insertRating = async ({
     throw new Error("Missing embedding fields");
   }
 
-  // Convert to Float32Array
   const profileEmbedding = new Float32Array(userVector.profile_embedding);
   const filmEmbedding = new Float32Array(filmVector.film_embedding);
 
