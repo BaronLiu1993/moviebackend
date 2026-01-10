@@ -1,11 +1,13 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 import OpenAI from "openai";
-import dotenv from "dotenv"
+import dotenv from "dotenv";
 
-dotenv.config()
+dotenv.config();
 
-const OPENAI_KEY=process.env.OPENAI_API_KEY
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
+const TMDB_API_BASE = process.env.TMDB_API_BASE;
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
 
 // Types
 type RatingType = {
@@ -24,9 +26,6 @@ type InsertRatingType = {
   note: string;
   userId: UUID;
   filmId: UUID;
-  genres: string[];
-  summary: string
-  keywords: string[]
 };
 
 type UpdateRatingType = {
@@ -41,9 +40,8 @@ type DeleteRatingType = {
 };
 
 type EmbeddingRequestType = {
-  supbaseClient: SupabaseClient
-  inputString: string
-}
+  filmId: number;
+};
 
 type VectorType = Float32Array;
 
@@ -53,7 +51,7 @@ type DotProductType = {
 };
 
 // OpenAI Client
-const OpenAIClient = new OpenAI({apiKey: OPENAI_KEY})
+const OpenAIClient = new OpenAI({ apiKey: OPENAI_KEY });
 
 const computeDotProduct = ({ u, m }: DotProductType): number => {
   if (u.length !== m.length) {
@@ -83,19 +81,52 @@ const checkFilmExists = async ({
 };
 
 export const generateFilmEmbedding = async ({
-  inputString, supbaseClient
+  filmId,
 }: EmbeddingRequestType) => {
-  const response = await OpenAIClient.embeddings.create({
+  console.log("fired")
+  const [movieMetdata, movieKeywords] = await Promise.all([
+    fetch(`${TMDB_API_BASE}/3/movie/${filmId}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${TMDB_API_KEY}`,
+      },
+    }),
+    fetch(`${TMDB_API_BASE}/3/movie/${filmId}/keywords`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${TMDB_API_KEY}`,
+      },
+    }),
+  ]);
+
+  const [movieMetadataJson, movieKeywordsJson] = await Promise.all([
+    movieMetdata.json(),
+    movieKeywords.json(),
+  ]);
+
+  console.log(movieMetadataJson)
+
+  let inputString = "";
+  for (let i = 0; i < movieMetadataJson.genres.length; i++) {
+    inputString += movieMetadataJson.genres[i].name;
+  }
+
+  for (let i = 0; i < movieKeywordsJson.keywords.length; i++) {
+    inputString += movieKeywordsJson.keywords[i].name;
+  }
+
+  console.log(inputString)
+
+  
+  /**
+   * const response = await OpenAIClient.embeddings.create({
     model: "text-embedding-3-small",
     input: inputString,
-    encoding_format: "float"
-  })
+    encoding_format: "float",
+  });
 
-  const { data, error} = await supbaseClient
-    .from("Films")
-    .insert({})
-
-  return response.data[0]?.embedding
+  return response.data[0]?.embedding;
+   */
 };
 
 export const getRatings = async ({
@@ -137,13 +168,8 @@ export const insertRating = async ({
     .select("profile_embedding")
     .eq("user_id", userId)
     .single();
-  
-  const check = await checkFilmExists({supabaseClient, filmId})
 
-  if (check == true) {
-    const inputString = filmName + 
-    generateFilmEmbedding({ inputString, supbaseClient})
-  }
+  const check = await checkFilmExists({ supabaseClient, filmId });
 
 
   // Fetch Film Embeddings

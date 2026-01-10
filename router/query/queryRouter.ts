@@ -1,31 +1,29 @@
 import { Router } from "express";
-import { getRecommendedFilms } from "../../service/query/queryService.js";
+import {
+  getRelatedFilms,
+} from "../../service/query/queryService.js";
 import { verifyToken } from "../../middleware/verifyToken.js";
 
 const router = Router();
 
-router.get("/search", verifyToken, async (req, res) => {
-    const { query } = req.body
-    const supabaseClient = req.supabaseClient
-    
-    if (!supabaseClient || !query) {
-        return res.status(400).json({message: "Missing Parameters"})
-    }
+router.get("/start-search", async (req, res) => {
+  const { genres, countries } = req.query;
+  
+  if (!genres || !countries) {
+    return res.status(400).json({ message: "Missing Parameters" });
+  }
 
-    try {
-        const data = await getRecommendedFilms({supabaseClient})
-        return res.status(200).json({ data })      
-    } catch {
-        return res.status(500).json({message: "Internal Server Error"})
-    }
-})
+  if (typeof genres !== "string" || typeof countries !== "string") {
+    return res.status(400).json({ message: "Invalid query parameters" });
+  }
 
+  try {
+    const data = await getRelatedFilms({ genres, countries });
+    return res.status(200).json({ data });
+  } catch (err) {
+    console.log(err)
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
 
-
-
-
-
-
-
-
-export default router
+export default router;
