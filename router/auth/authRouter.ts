@@ -6,6 +6,7 @@ import {
 import { createSignInSupabase } from "../../service/supabase/configureSupabase.js";
 import { verifyToken } from "../../middleware/verifyToken.js";
 import { createSupabaseClient } from "../../service/supabase/configureSupabase.js";
+import type { UUID } from "node:crypto";
 
 const router = Router();
 
@@ -85,11 +86,13 @@ router.post("/register", verifyToken, async (req, res) => {
   const inputString = genreString + topMovieString;
 
   const supabaseClient = req.supabaseClient;
-  if (!supabaseClient || !inputString) {
+  const userId = req.user?.sub as UUID
+
+  if (!supabaseClient || !inputString || !userId) {
     return res.status(400).json({ message: "Missing Imports" });
   }
 
-  const embedding = await generateInterestProfileVector({ inputString });
+  const embedding = await generateInterestProfileVector({ inputString, supabaseClient, userId });
 
   try {
     // Profile embedding is the embedding for each individual person
