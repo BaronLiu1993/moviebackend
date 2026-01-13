@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { insertRating, selectRatings } from "../../service/rate/rateService.js";
+import { deleteRating, insertRating, selectRatings } from "../../service/rate/rateService.js";
 import type { UUID } from "node:crypto";
 
 const router = Router();
@@ -36,6 +36,29 @@ router.get("/select", async (req, res) => {
   }
 }); 
 
+router.delete("/delete", async (req, res) => {
+  const userId = req.user?.sub as UUID
+  const { ratingId } = req.body
+
+  if (!userId || !ratingId || !req.supabaseClient) {
+    return res.status(400).json({ message: "Missing Inputs"})
+  }
+  const supabaseClient = req.supabaseClient;
+  try {
+    await deleteRating({ratingId, supabaseClient})
+  } catch {
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+router.put("/update", async (req, res) => {
+  const userId = req.user?.sub as UUID
+  try {
+
+  } catch {
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
 
 
 export default router;

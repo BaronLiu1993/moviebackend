@@ -156,85 +156,116 @@ export const insertRating = async ({
   filmId,
 }: InsertRatingType) => {
   const learningRate = 0.01;
+  const lambda = 0.01;
+  const normalizedRating = (rating - 3) / 2;
+  const confidenceMap: Record<number, number> = {
+    1: 1.0,
+    2: 0.7,
+    3: 0.3,
+    4: 0.7,
+    5: 1.0,
+  };
+  const confidence = confidenceMap[rating] ?? 0.5;
 
   const { error: insertionError } = await supabaseClient
     .from("Ratings")
-    .insert({ user_id: userId, rating, note, film_id: filmId });
+    .insert({
+      user_id: userId,
+      rating,
+      note,
+      film_id: filmId,
+    });
 
   if (insertionError) {
     throw new Error("Failed To Insert Rating");
   }
 
-  // Fetch User Vector
-  const { data: userVector, error: userVectorFetchError } = await supabaseClient
-    .from("User_Profiles")
-    .select("profile_embedding")
-    .eq("user_id", userId)
-    .single();
+  const { data: userVector, error: userVectorFetchError } =
+    await supabaseClient
+      .from("User_Profiles")
+      .select("profile_embedding")
+      .eq("user_id", userId)
+      .single();
 
-  const check = await checkFilmExists({ supabaseClient, filmId });
+  if (userVectorFetchError || !userVector?.profile_embedding) {
+    throw new Error("Failed to fetch user embedding");
+  }
 
-  if (check == false) {
+  // Ensure film exists
+  const exists = await checkFilmExists({ supabaseClient, filmId });
+  if (!exists) {
     await generateFilmEmbedding({ filmId });
   }
 
-  // Fetch Film Embeddings
-  const { data: filmVector, error: filmVectorFetchError } = await supabaseClient
-    .from("Film")
-    .select("film_embedding")
-    .eq("film_id", filmId)
-    .single();
+  // Fetch film embedding
+  const { data: filmVector, error: filmVectorFetchError } =
+    await supabaseClient
+      .from("Film")
+      .select("film_embedding")
+      .eq("film_id", filmId)
+      .single();
 
-  // Check for errors and missing data
-  if (userVectorFetchError || filmVectorFetchError) {
-    throw new Error("Failed to fetch embeddings");
+  if (filmVectorFetchError || !filmVector?.film_embedding) {
+    throw new Error("Failed to fetch film embedding");
   }
 
-  if (!userVector || !filmVector) {
-    throw new Error("Missing embedding data");
+  const userEmbeddingRaw = userVector.profile_embedding;
+  const filmEmbeddingRaw = filmVector.film_embedding;
+
+  if (
+    !Array.isArray(userEmbeddingRaw) ||
+    !Array.isArray(filmEmbeddingRaw)
+  ) {
+    throw new Error("Invalid embedding format");
   }
 
-  if (!userVector.profile_embedding || !filmVector.film_embedding) {
-    throw new Error("Missing embedding fields");
-  }
+  const userEmbedding = new Float32Array(userEmbeddingRaw);
+  const filmEmbedding = new Float32Array(filmEmbeddingRaw);
 
-  const profileEmbedding = new Float32Array(userVector.profile_embedding);
-  const filmEmbedding = new Float32Array(filmVector.film_embedding);
-
-  // Validate embeddings
-  if (profileEmbedding.length === 0 || filmEmbedding.length === 0) {
+  if (userEmbedding.length === 0 || filmEmbedding.length === 0) {
     throw new Error("Embeddings cannot be empty");
   }
 
-  if (profileEmbedding.length !== filmEmbedding.length) {
+  if (userEmbedding.length !== filmEmbedding.length) {
     throw new Error("Embedding dimension mismatch");
   }
 
-  // Compute dot product
-  const dotProduct = computeDotProduct({
-    u: profileEmbedding,
+  const prediction = computeDotProduct({
+    u: userEmbedding,
     m: filmEmbedding,
   });
 
-  const error = rating - dotProduct;
+  const error = confidence * (normalizedRating - prediction);
 
-  // Update user vector using gradient descent
-  const newVector = new Float32Array(profileEmbedding.length);
-  for (let i = 0; i < profileEmbedding.length; i++) {
-    newVector[i] =
-      profileEmbedding[i]! + error * learningRate * filmEmbedding[i]!;
+  const updatedUser = new Float32Array(userEmbedding.length);
+
+  for (let i = 0; i < userEmbedding.length; i++) {
+    updatedUser[i] =
+      userEmbedding[i] +
+      learningRate * (error * filmEmbedding[i] - lambda * userEmbedding[i]);
   }
 
-  // Update database
-  const { error: vectorInsertionError } = await supabaseClient
+  // Persist user update
+  const { error: userUpdateError } = await supabaseClient
     .from("User_Profiles")
-    .update({ profile_embedding: Array.from(newVector) })
+    .update({ profile_embedding: Array.from(updatedUser) })
     .eq("user_id", userId);
 
-  if (vectorInsertionError) {
-    throw new Error("Failed To Update Vector");
+  if (userUpdateError) {
+    throw new Error("Failed to update user embedding");
+  }
+
+  // Persist film update
+  const { error: filmUpdateError } = await supabaseClient
+    .from("Film")
+    .update({ film_embedding: Array.from(updatedFilm) })
+    .eq("film_id", filmId);
+
+  if (filmUpdateError) {
+    throw new Error("Failed to update film embedding");
   }
 };
+
 
 export const deleteRating = async ({
   ratingId,
