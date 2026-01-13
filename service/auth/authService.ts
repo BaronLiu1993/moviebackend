@@ -9,16 +9,16 @@ dotenv.config()
 const scopes = ["email", "profile"];
 const OPENAI_KEY=process.env.OPENAI_API_KEY
 
-interface ProfileType {
+interface ProfileRequestType {
   userId: UUID
   supabaseClient: SupabaseClient
 }
 
-interface SelectProfileType extends ProfileType {
+interface SelectProfileRequestType extends ProfileRequestType {
   friendId: UUID
 }
 
-interface ProfileChangeType extends ProfileType {
+interface ProfileChangeRequestType extends ProfileRequestType {
   inputString: string
 }
 
@@ -38,7 +38,7 @@ const OpenAIClient = new OpenAI({
   apiKey: OPENAI_KEY,
 });
 
-const checkIsFriends = async ({supabaseClient, userId, friendId}: SelectProfileType) => {
+const checkIsFriends = async ({supabaseClient, userId, friendId}: SelectProfileRequestType) => {
   const {data, error }  = await supabaseClient.rpc("is_following", {
     p_following_id: friendId,
     p_follower_id: userId
@@ -64,7 +64,7 @@ export const handleSignIn = async (): Promise<string> => {
 };
 
 // Every User Can Only Generate Once, Check
-const checkRegistration = async ({userId, supabaseClient}: ProfileType) => {
+const checkRegistration = async ({userId, supabaseClient}: ProfileRequestType) => {
   const { data: registrationCheck, error: checkError } = await supabaseClient
     .from("User_Profiles")
     .select("finished_registration")
@@ -77,7 +77,7 @@ const checkRegistration = async ({userId, supabaseClient}: ProfileType) => {
   return registrationCheck.finished_registration as boolean
 }
 
-export const generateInterestProfileVector = async ({inputString, userId, supabaseClient}: ProfileChangeType) => {
+export const generateInterestProfileVector = async ({inputString, userId, supabaseClient}: ProfileChangeRequestType) => {
   const check = await checkRegistration({userId, supabaseClient})
   if (check == true) {
     throw new Error("Already Registered")
@@ -130,9 +130,10 @@ export const getFollowing = async({}) => {
 
 }
 
-export const getProfile = async ({userId, friendId, supabaseClient}: SelectProfileType) => {
+export const getProfile = async ({userId, friendId, supabaseClient}: SelectProfileRequestType) => {
   // Check if they are a friend of the user
   const check = await checkIsFriends({supabaseClient, userId, friendId})
+
   if (check == false) {
     throw new Error("Not Friend or Not Accepted Yet")
   }
