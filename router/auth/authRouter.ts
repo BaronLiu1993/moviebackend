@@ -87,13 +87,10 @@ router.post("/register", verifyToken, async (req, res) => {
 
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID
-
   if (!supabaseClient || !inputString || !userId) {
     return res.status(400).json({ message: "Missing Imports" });
   }
-
   const embedding = await generateInterestProfileVector({ inputString, supabaseClient, userId });
-
   try {
     // Profile embedding is the embedding for each individual person
     const { error: insertionError } = await supabaseClient

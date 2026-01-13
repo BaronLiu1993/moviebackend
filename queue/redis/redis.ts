@@ -31,7 +31,6 @@ const redisOptions = {
   )
 };
 
-// Create Redis connection with proper type handling
 export const Connection = typeof redisConfig === 'string'
   ? new Redis(redisConfig, redisOptions)
   : new Redis({ ...redisConfig, ...redisOptions });

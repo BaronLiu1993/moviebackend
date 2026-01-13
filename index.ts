@@ -9,9 +9,9 @@ import rateLimit from 'express-rate-limit';
 
 const app = express()
 
-app.use("/v1/auth", authRouter)
-app.use("/v1/query", queryRouter)
-app.use("/v1/rate", rateRouter)
+app.use("/v1/api/auth", authRouter)
+app.use("/v1/api/query", queryRouter)
+app.use("/v1/api/rate", rateRouter)
 
 app.use(
   cors({
