@@ -59,14 +59,21 @@ router.get("/get-profile", async (req, res) => {
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID;
 
-  if (!userId || !friendId || !supabaseClient || !friendId) {
+  if (!userId || !friendId || !supabaseClient || typeof friendId !== 'string') {
     return res.status(400).json({ message: "Missing Inputs" });
   }
+
   try {
-    const data = await getProfile({ userId, supabaseClient, friendId });
+    const data = await getProfile({ 
+      userId, 
+      supabaseClient, 
+      friendId: friendId as UUID 
+    });
     return res.status(200).json({ data });
-  } catch {
-    return res.status(500).json({ message: "Internal Server Error" });
+  } catch (error) {
+    return res.status(500).json({ 
+      message: error instanceof Error ? error.message : "Internal Server Error" 
+    });
   }
 });
 
