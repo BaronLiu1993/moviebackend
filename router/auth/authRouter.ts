@@ -79,7 +79,7 @@ router.post("/oauth2callback", async (req, res) => {
 });
 
 router.post("/register", verifyToken, async (req, res) => {
-  // Input String is the Top Genres + Favourite Shows Mixed Together
+  // Input String is the Top Genres That They Said + Favourite Shows Mixed Together
   const { genres, topMovies } = req.body;
   const genreString = genres.join(' ')
   const topMovieString = topMovies.join(' ')
@@ -90,6 +90,7 @@ router.post("/register", verifyToken, async (req, res) => {
   if (!supabaseClient || !inputString || !userId) {
     return res.status(400).json({ message: "Missing Imports" });
   }
+  
   const embedding = await generateInterestProfileVector({ inputString, supabaseClient, userId });
   try {
     // Profile embedding is the embedding for each individual person

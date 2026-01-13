@@ -1,11 +1,15 @@
 import { Connection } from "../redis/redis.js";
-import Queue from "bull";
+import { Queue } from "bullmq";
 
 const rateQueue = new Queue("insert-rate", {
   connection: Connection,
   defaultJobOptions: {
-    removeOnComplete: 100,
-    removeOnFail: 50,
+    removeOnComplete: {
+      count: 100,
+    },
+    removeOnFail: {
+      count: 50,
+    },
     attempts: 3,
     backoff: {
       type: "exponential",
