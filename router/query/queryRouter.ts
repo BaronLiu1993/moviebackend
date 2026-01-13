@@ -3,12 +3,13 @@ import {
   getRelatedFilms,
 } from "../../service/query/queryService.js";
 import { verifyToken } from "../../middleware/verifyToken.js";
+import type { UUID } from "node:crypto";
 
 const router = Router();
 
-router.get("/start-search", async (req, res) => {
+router.get("/begin-search", async (req, res) => {
   const { genres, countries } = req.query;
-  
+
   if (!genres || !countries) {
     return res.status(400).json({ message: "Missing Parameters" });
   }
@@ -25,5 +26,25 @@ router.get("/start-search", async (req, res) => {
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+router.get("/personalised", async (req, res) => {
+  const supabase = req.supabaseClient 
+  const userId = req.user?.sub as UUID
+
+  if (!supabase || !userId) {
+    return res.status(401).json({message: "Missing Supabase or UserID"})
+  }
+
+  try {
+     const { data: personalisedRecommendations, error: recommendationsError} = await supabase
+      .rpc("", {
+        
+      })
+  } catch {
+    return res.status(500).json({message: "Internal Server Error"})
+  }
+
+ 
+})
 
 export default router;

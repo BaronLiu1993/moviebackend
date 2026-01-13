@@ -2,6 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 import OpenAI from "openai";
 import dotenv from "dotenv";
+import { createServerSideSupabaseClient } from "../supabase/configureSupabase.js";
 
 dotenv.config();
 
@@ -12,7 +13,7 @@ const TMDB_API_KEY = process.env.TMDB_API_KEY;
 // Types
 type RatingType = {
   supabaseClient: SupabaseClient;
-  filmId: UUID;
+  filmId: number;
 };
 
 type SelectRatingType = {
@@ -25,7 +26,7 @@ type InsertRatingType = {
   rating: number;
   note: string;
   userId: UUID;
-  filmId: UUID;
+  filmId: number;
 };
 
 type UpdateRatingType = {
@@ -52,6 +53,7 @@ type DotProductType = {
 
 // OpenAI Client
 const OpenAIClient = new OpenAI({ apiKey: OPENAI_KEY });
+const supabaseAdmin = createServerSideSupabaseClient();
 
 const computeDotProduct = ({ u, m }: DotProductType): number => {
   if (u.length !== m.length) {
@@ -80,10 +82,7 @@ const checkFilmExists = async ({
   return true;
 };
 
-export const generateFilmEmbedding = async ({
-  filmId,
-}: EmbeddingRequestType) => {
-  console.log("fired")
+const generateFilmEmbedding = async ({ filmId }: EmbeddingRequestType) => {
   const [movieMetdata, movieKeywords] = await Promise.all([
     fetch(`${TMDB_API_BASE}/3/movie/${filmId}`, {
       method: "GET",
@@ -104,8 +103,6 @@ export const generateFilmEmbedding = async ({
     movieKeywords.json(),
   ]);
 
-  console.log(movieMetadataJson)
-
   let inputString = "";
   for (let i = 0; i < movieMetadataJson.genres.length; i++) {
     inputString += movieMetadataJson.genres[i].name;
@@ -115,21 +112,27 @@ export const generateFilmEmbedding = async ({
     inputString += movieKeywordsJson.keywords[i].name;
   }
 
-  console.log(inputString)
-
-  
-  /**
-   * const response = await OpenAIClient.embeddings.create({
+  const response = await OpenAIClient.embeddings.create({
     model: "text-embedding-3-small",
     input: inputString,
     encoding_format: "float",
   });
 
-  return response.data[0]?.embedding;
-   */
+  // Use Supabase Client
+  const { error: insertionError } = await supabaseAdmin
+    .from("Guanghai")
+    .insert({
+      film_embedding: response.data[0]?.embedding,
+      title: movieMetadataJson.name,
+      release_year: movieMetadataJson.release_date,
+    });
+
+  if (insertionError) {
+    throw new Error("Failed to Insert");
+  }
 };
 
-export const getRatings = async ({
+export const selectRatings = async ({
   userId,
   supabaseClient,
 }: SelectRatingType) => {
@@ -171,6 +174,9 @@ export const insertRating = async ({
 
   const check = await checkFilmExists({ supabaseClient, filmId });
 
+  if (check == false) {
+    await generateFilmEmbedding({ filmId });
+  }
 
   // Fetch Film Embeddings
   const { data: filmVector, error: filmVectorFetchError } = await supabaseClient
