@@ -1,17 +1,21 @@
 import express from 'express';
-import authRouter from "./router/auth/authRouter.js"
-import queryRouter from "./router/query/queryRouter.js"
-import rateRouter from "./router/rate/rateRouter.js"
+
 import cors from "cors"
 import bodyParser from 'body-parser';
 import cookieParser from "cookie-parser"
 import rateLimit from 'express-rate-limit';
+
+import authRouter from "./router/auth/authRouter.js"
+import queryRouter from "./router/query/queryRouter.js"
+import rateRouter from "./router/rate/rateRouter.js"
+import friendRouter from './router/friend/friendRouter.js';
 
 const app = express()
 
 app.use("/v1/api/auth", authRouter)
 app.use("/v1/api/query", queryRouter)
 app.use("/v1/api/rate", rateRouter)
+app.use("/v1/api/friend", friendRouter)
 
 app.use(
   cors({

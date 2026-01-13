@@ -4,7 +4,7 @@ import type { UUID } from "node:crypto";
 
 const router = Router();
 
-router.post("/insert", async (req, res) => {
+router.post("/insert-ratings", async (req, res) => {
   const { filmId, rating, note } = req.body
   const userId = req.user?.sub as UUID
 
@@ -21,7 +21,7 @@ router.post("/insert", async (req, res) => {
   }
 });
 
-router.get("/select", async (req, res) => {
+router.get("/select-ratings", async (req, res) => {
   const userId = req.user?.sub as UUID
   if (!userId || !req.supabaseClient) {
     return res.status(400).json({ message: "Missing Inputs"})
@@ -36,7 +36,7 @@ router.get("/select", async (req, res) => {
   }
 }); 
 
-router.delete("/delete", async (req, res) => {
+router.delete("/delete-ratings", async (req, res) => {
   const userId = req.user?.sub as UUID
   const { ratingId } = req.body
 
@@ -51,7 +51,7 @@ router.delete("/delete", async (req, res) => {
   }
 });
 
-router.put("/update", async (req, res) => {
+router.put("/update-ratings", async (req, res) => {
   const userId = req.user?.sub as UUID
   try {
 

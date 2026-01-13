@@ -90,10 +90,7 @@ export const generateInterestProfileVector = async ({inputString, userId, supaba
   return response.data[0]?.embedding
 }
 
-
-
 export const sendFriendRequest = async ({userId, friendId, supabaseClient}: FriendRequestType) => {
-  
   const { error: sendError } = await supabaseClient
     .from("Friends")
     .insert({user_id: userId, friend_id: friendId, status: 'pending'})
