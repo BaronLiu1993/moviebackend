@@ -1,7 +1,7 @@
 import { Connection } from "../redis/redis.js";
 import { Queue } from "bullmq";
 
-const rateQueue = new Queue("insert-rate", {
+const insertRateQueue = new Queue("insert-rate", {
   connection: Connection,
   defaultJobOptions: {
     removeOnComplete: {
@@ -18,4 +18,4 @@ const rateQueue = new Queue("insert-rate", {
   },
 });
 
-export default rateQueue;
+export default insertRateQueue;

@@ -1,13 +1,31 @@
 import { Router } from "express";
 import {
   getRelatedFilms,
+  getRecommendedFilms,
+  getFriendFilms
 } from "../../service/query/queryService.js";
 import { verifyToken } from "../../middleware/verifyToken.js";
 import type { UUID } from "node:crypto";
 
 const router = Router();
 
-router.get("/begin-search", async (req, res) => {
+// Begin Search for Related Films
+router.get("/friend-search", verifyToken, async (req, res) => {
+  const supabaseClient = req.supabaseClient 
+  const userId = req.user?.sub as UUID
+  
+  if (!supabaseClient || !userId) {
+    return res.status(401).json({message: "Missing Supabase or UserID"})
+  }
+  try {
+    const data = await getFriendFilms({supabaseClient, userId})
+    return res.status(200).json({data})
+  } catch {
+    return res.status(500).json({message: "Internal Server Error"})
+  }
+});
+
+router.get("/keyword-search", async (req, res) => {
   const { genres, countries } = req.query;
 
   if (!genres || !countries) {
@@ -27,19 +45,16 @@ router.get("/begin-search", async (req, res) => {
   }
 });
 
-router.get("/personalised", async (req, res) => {
-  const supabase = req.supabaseClient 
+router.get("/vector-search", async (req, res) => {
+  const supabaseClient = req.supabaseClient 
   const userId = req.user?.sub as UUID
 
-  if (!supabase || !userId) {
+  if (!supabaseClient || !userId) {
     return res.status(401).json({message: "Missing Supabase or UserID"})
   }
-
   try {
-     const { data: personalisedRecommendations, error: recommendationsError} = await supabase
-      .rpc("", {
-        
-      })
+    const data = await getRecommendedFilms({supabaseClient, userId})
+    return res.status(200).json({data})
   } catch {
     return res.status(500).json({message: "Internal Server Error"})
   }

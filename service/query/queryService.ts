@@ -4,7 +4,7 @@ import type { UUID } from "node:crypto";
 const TMDB_API_BASE = process.env.TMDB_API_BASE;
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 
-// Only Select Films Here
+// Request Types
 type SelectRelatedFilmRequestType = {
   genres: string;
   countries: string;
@@ -18,9 +18,23 @@ interface SelectRecommendedFilmRequestType {
 interface SelectFriendsFilmRequestType
   extends SelectRecommendedFilmRequestType {}
 
-type BookmarkRequestType = {};
+type BookmarkRequestType = {
+  supabaseClient: SupabaseClient;
+  userId: UUID;
+  filmId: number;
+};
 
-export const bookmarkFilm = async ({}) => {};
+// Bookmark a Film
+export const bookmarkFilm = async ({supabaseClient, userId, filmId}: BookmarkRequestType) => {
+  const { data, error } = await supabaseClient.from("bookmarks").insert({
+    user_id: userId,
+    film_id: filmId
+  })
+
+  if (error) {
+    throw new Error("Failed to Bookmark Film")
+  }
+};
 
 // Get Recommended Films based on their Profile Embeddings
 export const getRecommendedFilms = async ({
@@ -38,12 +52,12 @@ export const getRecommendedFilms = async ({
 
 // Check Films Friends are Watching or Rating
 export const getFriendFilms = async ({supabaseClient, userId}: SelectFriendsFilmRequestType) => {
-  const {data, error }= await supabaseClient.rpc("", {
+  const {data, error }= await supabaseClient.rpc("get_friends_films", {
     user_id: userId
   })
 
   if (error) {
-    throw new Error("Faield To Fetch Friend Films")
+    throw new Error("Failed To Fetch Friend Films")
   }
 
   return data
