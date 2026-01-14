@@ -233,16 +233,11 @@ export const insertRating = async ({
   const error = confidence * (normalizedRating - prediction);
   
   const updatedUser = new Float32Array(userEmbedding.length);
-  const updatedFilm = new Float32Array(filmEmbedding.length);
   
   for (let i = 0; i < userEmbedding.length; i++) {
     updatedUser[i] =
       userEmbedding[i] +
       learningRate * (error * filmEmbedding[i] - lambda * userEmbedding[i]);
-      
-    updatedFilm[i] =
-      filmEmbedding[i] +
-      learningRate * (error * userEmbedding[i] - lambda * filmEmbedding[i]);
   }
   
   // Persist user update
@@ -255,15 +250,6 @@ export const insertRating = async ({
     throw new Error("Failed to update user embedding");
   }
   
-  // Persist film update
-  const { error: filmUpdateError } = await supabaseClient
-    .from("Film")
-    .update({ film_embedding: Array.from(updatedFilm) })
-    .eq("film_id", filmId);
-    
-  if (filmUpdateError) {
-    throw new Error("Failed to update film embedding");
-  }
 };
 
 export const deleteRating = async ({
