@@ -1,100 +1,115 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 
-const TMDB_API_BASE = process.env.TMDB_API_BASE;
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
+const TMDB_API_BASE = process.env.TMDB_API_BASE!;
+const TMDB_API_KEY = process.env.TMDB_API_KEY!;
 
-// Request Types
-type SelectRelatedFilmRequestType = {
+/* Types */
+
+type SupabaseRequest = {
+  supabaseClient: SupabaseClient;
+};
+
+type UserRequest = SupabaseRequest & {
+  userId: UUID;
+};
+
+type BookmarkRequest = UserRequest & {
+  filmId: number;
+};
+
+type SimilaritySearchRequest = SupabaseRequest & {
+  query: string;
+};
+
+type RelatedFilmRequest = {
   genres: string;
   countries: string;
 };
 
-interface SelectRecommendedFilmRequestType {
-  supabaseClient: SupabaseClient;
-  userId: UUID;
-}
+/* Service Functions */
 
-interface SelectFriendsFilmRequestType
-  extends SelectRecommendedFilmRequestType {}
-
-type BookmarkRequestType = {
-  supabaseClient: SupabaseClient;
-  userId: UUID;
-  filmId: number;
-};
-
-type SimilaritySearchRequestType = {
-  query: string;
-  supabaseClient: SupabaseClient;
-};
-
-// Bookmark a Film
-export const bookmarkFilm = async ({supabaseClient, userId, filmId}: BookmarkRequestType) => {
-  const { data, error } = await supabaseClient.from("bookmarks").insert({
+// Bookmark a film for a user
+export const bookmarkFilm = async ({
+  supabaseClient,
+  userId,
+  filmId,
+}: BookmarkRequest): Promise<void> => {
+  const { error } = await supabaseClient.from("bookmarks").insert({
     user_id: userId,
-    film_id: filmId
-  })
+    film_id: filmId,
+  });
 
   if (error) {
-    throw new Error("Failed to Bookmark Film")
+    throw new Error("Failed to bookmark film");
   }
 };
 
-// Get Recommended Films based on their Profile Embeddings
+// Get personalized film recommendations based on user embeddings
 export const getRecommendedFilms = async ({
   supabaseClient,
   userId,
-}: SelectRecommendedFilmRequestType) => {
+}: UserRequest) => {
   const { data, error } = await supabaseClient.rpc("get_recommended", {
-    user_id: userId
-  })
-  if (error) {
-    throw new Error("Failed to Fetch Recommended")
-  }
-  return data
-};
-
-// Check Films Friends are Watching or Rating
-export const getFriendFilms = async ({supabaseClient, userId}: SelectFriendsFilmRequestType) => {
-  const {data, error }= await supabaseClient.rpc("get_friends_films", {
-    user_id: userId
-  })
+    user_id: userId,
+  });
 
   if (error) {
-    throw new Error("Failed To Fetch Friend Films")
+    throw new Error("Failed to fetch recommended films");
   }
 
-  return data
+  return data;
 };
 
+// Get films friends are watching or rating
+export const getFriendFilms = async ({
+  supabaseClient,
+  userId,
+}: UserRequest) => {
+  const { data, error } = await supabaseClient.rpc("get_friends_films", {
+    user_id: userId,
+  });
+
+  if (error) {
+    throw new Error("Failed to fetch friend films");
+  }
+
+  return data;
+};
+
+// Search for films similar to a text query using embeddings
 export const getSimilarFilms = async ({
-  query, supabaseClient
-}: SimilaritySearchRequestType) => {
+  supabaseClient,
+  query,
+}: SimilaritySearchRequest) => {
   const { data, error } = await supabaseClient.rpc("get_similar_films", {
-    query: query
-  })
+    query,
+  });
+
   if (error) {
-    throw new Error("Failed to Fetch Similar Films")
+    throw new Error("Failed to fetch similar films");
   }
-  return data
+
+  return data;
 };
 
-// Get Films For Search Feature To Get Started
+// Fetch related films from TMDB based on genres and origin countries
 export const getRelatedFilms = async ({
   genres,
   countries,
-}: SelectRelatedFilmRequestType) => {
-  const fetchSearches = await fetch(
+}: RelatedFilmRequest) => {
+  const response = await fetch(
     `${TMDB_API_BASE}/3/discover/movie?with_genres=${genres}&with_origin_country=${countries}&page=1`,
     {
-      method: "GET",
       headers: {
         Authorization: `Bearer ${TMDB_API_KEY}`,
       },
     }
   );
 
-  const searches = await fetchSearches.json();
-  return searches;
+  if (!response.ok) {
+    throw new Error("Failed to fetch related films");
+  }
+
+  return response.json();
 };
