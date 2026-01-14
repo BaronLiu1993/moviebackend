@@ -1,11 +1,23 @@
+/**
+ * This module handles:
+ * - Bookmarking films for users
+ * - Fetching personalized film recommendations from Supabase (embeddings-based)
+ * - Retrieving films friends are watching or rating
+ * - Performing semantic film search using text embeddings
+ * - Fetching related films from TMDB based on genre and country
+ *
+ * It acts as the film discovery and recommendation service layer,
+ * combining Supabase RPCs with external TMDB data.
+ */
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 
+// config
 const TMDB_API_BASE = process.env.TMDB_API_BASE!;
 const TMDB_API_KEY = process.env.TMDB_API_KEY!;
 
-/* Types */
-
+// types
 type SupabaseRequest = {
   supabaseClient: SupabaseClient;
 };
@@ -27,9 +39,8 @@ type RelatedFilmRequest = {
   countries: string;
 };
 
-/* Service Functions */
-
-// Bookmark a film for a user
+// service functions
+// Bookmarks a film for a user
 export const bookmarkFilm = async ({
   supabaseClient,
   userId,
@@ -45,7 +56,7 @@ export const bookmarkFilm = async ({
   }
 };
 
-// Get personalized film recommendations based on user embeddings
+// Returns personalized film recommendations based on user embeddings
 export const getRecommendedFilms = async ({
   supabaseClient,
   userId,
@@ -61,7 +72,7 @@ export const getRecommendedFilms = async ({
   return data;
 };
 
-// Get films friends are watching or rating
+// Returns films that a user's friends are watching or rating
 export const getFriendFilms = async ({
   supabaseClient,
   userId,
@@ -77,7 +88,7 @@ export const getFriendFilms = async ({
   return data;
 };
 
-// Search for films similar to a text query using embeddings
+// Performs a semantic search for films using text embeddings
 export const getSimilarFilms = async ({
   supabaseClient,
   query,
@@ -93,7 +104,7 @@ export const getSimilarFilms = async ({
   return data;
 };
 
-// Fetch related films from TMDB based on genres and origin countries
+// Fetches related films from TMDB using genres and origin countries
 export const getRelatedFilms = async ({
   genres,
   countries,
