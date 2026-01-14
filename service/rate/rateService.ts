@@ -1,3 +1,14 @@
+/**
+ * This module handles:
+ * - Selecting, inserting, updating, and deleting user ratings
+ * - Generating and storing film embeddings from TMDB
+ * - Updating user profile embeddings based on new ratings (matrix factorization)
+ * - Computing predictions using dot products between user and film embeddings
+ *
+ * It combines Supabase RPCs and tables with OpenAI embeddings
+ * and TMDB metadata to manage personalized film recommendations.
+ */
+
 import { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 import OpenAI from "openai";
@@ -6,52 +17,12 @@ import { createServerSideSupabaseClient } from "../supabase/configureSupabase.js
 
 dotenv.config();
 
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
-const TMDB_API_BASE = process.env.TMDB_API_BASE;
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
+// config
+const OPENAI_KEY = process.env.OPENAI_API_KEY!;
+const TMDB_API_BASE = process.env.TMDB_API_BASE!;
+const TMDB_API_KEY = process.env.TMDB_API_KEY!;
 
-// Types
-type RatingType = {
-  supabaseClient: SupabaseClient;
-  filmId: number;
-};
-
-type SelectRatingType = {
-  supabaseClient: SupabaseClient;
-  userId: UUID;
-};
-
-type InsertRatingType = {
-  supabaseClient: SupabaseClient;
-  rating: number;
-  note: string;
-  userId: UUID;
-  filmId: number;
-};
-
-type UpdateRatingType = {
-  supabaseClient: SupabaseClient;
-  userId: UUID;
-  newRating: number;
-};
-
-type DeleteRatingType = {
-  supabaseClient: SupabaseClient;
-  ratingId: UUID;
-};
-
-type EmbeddingRequestType = {
-  filmId: number;
-};
-
-type VectorType = Float32Array;
-
-type DotProductType = {
-  u: VectorType;
-  m: VectorType;
-};
-
-// OpenAI Client + Supabase Admin Client
+// OpenAI & Supabase Admin Clients
 const OpenAIClient = new OpenAI({ apiKey: OPENAI_KEY });
 const supabaseAdmin = createServerSideSupabaseClient();
 
@@ -66,14 +37,31 @@ const confidenceMap: Record<number, number> = {
   5: 1.0,
 };
 
+// types
+type RatingType = { supabaseClient: SupabaseClient; filmId: number };
+type SelectRatingType = { supabaseClient: SupabaseClient; userId: UUID };
+type InsertRatingType = {
+  supabaseClient: SupabaseClient;
+  rating: number;
+  note: string;
+  userId: UUID;
+  filmId: number;
+};
+type UpdateRatingType = {
+  supabaseClient: SupabaseClient;
+  userId: UUID;
+  newRating: number;
+};
+type DeleteRatingType = { supabaseClient: SupabaseClient; ratingId: UUID };
+type EmbeddingRequestType = { filmId: number };
+type VectorType = Float32Array;
+type DotProductType = { u: VectorType; m: VectorType };
+
+// helpers
 const computeDotProduct = ({ u, m }: DotProductType): number => {
-  if (u.length !== m.length) {
-    throw new Error("Vector dimension mismatch");
-  }
+  if (u.length !== m.length) throw new Error("Vector dimension mismatch");
   let sum = 0;
-  for (let i = 0; i < u.length; i++) {
-    sum += u[i]! * m[i]!;
-  }
+  for (let i = 0; i < u.length; i++) sum += u[i]! * m[i]!;
   return sum;
 };
 
@@ -81,47 +69,36 @@ const checkFilmExists = async ({
   supabaseClient,
   filmId,
 }: RatingType): Promise<boolean> => {
-  const { error } = await supabaseClient
-    .from("")
+  const { data, error } = await supabaseClient
+    .from("Film")
     .select("film_id")
-    .eq("film_id", filmId);
+    .eq("film_id", filmId)
+    .single();
 
-  if (error) {
-    return false;
-  }
-
-  return true;
+  return !!data && !error;
 };
 
+// Generate and store film embedding in Supabase
 const generateFilmEmbedding = async ({ filmId }: EmbeddingRequestType) => {
-  const [movieMetdata, movieKeywords] = await Promise.all([
+  const [movieMetadataRes, movieKeywordsRes] = await Promise.all([
     fetch(`${TMDB_API_BASE}/3/movie/${filmId}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${TMDB_API_KEY}`,
-      },
+      headers: { Authorization: `Bearer ${TMDB_API_KEY}` },
     }),
     fetch(`${TMDB_API_BASE}/3/movie/${filmId}/keywords`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${TMDB_API_KEY}`,
-      },
+      headers: { Authorization: `Bearer ${TMDB_API_KEY}` },
     }),
   ]);
 
-  const [movieMetadataJson, movieKeywordsJson] = await Promise.all([
-    movieMetdata.json(),
-    movieKeywords.json(),
+  const [movieMetadata, movieKeywords] = await Promise.all([
+    movieMetadataRes.json(),
+    movieKeywordsRes.json(),
   ]);
 
   let inputString = "";
-  for (let i = 0; i < movieMetadataJson.genres.length; i++) {
-    inputString += movieMetadataJson.genres[i].name;
-  }
-
-  for (let i = 0; i < movieKeywordsJson.keywords.length; i++) {
-    inputString += movieKeywordsJson.keywords[i].name;
-  }
+  if (Array.isArray(movieMetadata.genres))
+    inputString += movieMetadata.genres.map((g: any) => g.name).join(" ");
+  if (Array.isArray(movieKeywords.keywords))
+    inputString += movieKeywords.keywords.map((k: any) => k.name).join(" ");
 
   const response = await OpenAIClient.embeddings.create({
     model: "text-embedding-3-small",
@@ -129,34 +106,33 @@ const generateFilmEmbedding = async ({ filmId }: EmbeddingRequestType) => {
     encoding_format: "float",
   });
 
-  // Use Supabase Client
+  const embedding = response.data[0]?.embedding;
+  if (!embedding) throw new Error("Failed to generate film embedding");
+
   const { error: insertionError } = await supabaseAdmin
-    .from("Guanghai")
+    .from("Film")
     .insert({
-      film_embedding: response.data[0]?.embedding,
-      title: movieMetadataJson.name,
-      release_year: movieMetadataJson.release_date,
+      film_embedding: embedding,
+      title: movieMetadata.title,
+      release_year: movieMetadata.release_date,
     });
 
-  if (insertionError) {
-    throw new Error("Failed to Insert");
-  }
+  if (insertionError) throw new Error("Failed to insert film embedding");
 };
 
+// CRUD operations
 export const selectRatings = async ({
   userId,
   supabaseClient,
 }: SelectRatingType) => {
-  const { data: ratingData, error: selectionError } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from("Ratings")
     .select()
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
-  if (selectionError) {
-    throw new Error("Failed To Select Data");
-  }
-  return ratingData;
+  if (error) throw new Error("Failed to select ratings");
+  return data;
 };
 
 export const insertRating = async ({
@@ -168,102 +144,69 @@ export const insertRating = async ({
 }: InsertRatingType) => {
   const normalizedRating = (rating - 3) / 2;
   const confidence = confidenceMap[rating] ?? 0.5;
-  
-  const { error: insertionError } = await supabaseClient
-    .from("Ratings")
-    .insert({
-      user_id: userId,
-      rating,
-      note,
-      film_id: filmId,
-    });
-    
-  if (insertionError) {
-    throw new Error("Failed To Insert Rating");
-  }
-  
-  const { data: userVector, error: userVectorFetchError } = await supabaseClient
+
+  // insert rating
+  const { error: insertError } = await supabaseClient.from("Ratings").insert({
+    user_id: userId,
+    rating,
+    note,
+    film_id: filmId,
+  });
+  if (insertError) throw new Error("Failed to insert rating");
+
+  // fetch user embedding
+  const { data: userVector, error: userVectorError } = await supabaseClient
     .from("User_Profiles")
     .select("profile_embedding")
     .eq("user_id", userId)
     .single();
-    
-  if (userVectorFetchError || !userVector?.profile_embedding) {
-    throw new Error("Failed to fetch user embedding");
-  }
-  
+  const userEmbeddingRaw = userVector?.profile_embedding as number[] | undefined;
+  if (!userEmbeddingRaw) throw new Error("User embedding not found");
+
+  // ensure film embedding exists
   const exists = await checkFilmExists({ supabaseClient, filmId });
-  if (!exists) {
-    await generateFilmEmbedding({ filmId });
-  }
-  
-  const { data: filmVector, error: filmVectorFetchError } = await supabaseClient
+  if (!exists) await generateFilmEmbedding({ filmId });
+
+  // fetch film embedding
+  const { data: filmVector, error: filmVectorError } = await supabaseClient
     .from("Film")
     .select("film_embedding")
     .eq("film_id", filmId)
     .single();
-    
-  if (filmVectorFetchError || !filmVector?.film_embedding) {
-    throw new Error("Failed to fetch film embedding");
-  }
-  
-  const userEmbeddingRaw = userVector.profile_embedding;
-  const filmEmbeddingRaw = filmVector.film_embedding;
-  
-  if (!Array.isArray(userEmbeddingRaw) || !Array.isArray(filmEmbeddingRaw)) {
-    throw new Error("Invalid embedding format");
-  }
-  
+  const filmEmbeddingRaw = filmVector?.film_embedding as number[] | undefined;
+  if (!filmEmbeddingRaw) throw new Error("Film embedding not found");
+
   const userEmbedding = new Float32Array(userEmbeddingRaw);
   const filmEmbedding = new Float32Array(filmEmbeddingRaw);
-  
-  if (userEmbedding.length === 0 || filmEmbedding.length === 0) {
-    throw new Error("Embeddings cannot be empty");
+
+  if (!userEmbedding || !filmEmbedding) {
+    throw new Error("Embeddings not found");
   }
-  
+
   if (userEmbedding.length !== filmEmbedding.length) {
     throw new Error("Embedding dimension mismatch");
   }
-  
-  const prediction = computeDotProduct({
-    u: userEmbedding,
-    m: filmEmbedding,
-  });
-  
+  // compute prediction
+  const prediction = computeDotProduct({ u: userEmbedding, m: filmEmbedding });
   const error = confidence * (normalizedRating - prediction);
-  
+
+  // update user embedding
   const updatedUser = new Float32Array(userEmbedding.length);
-  
   for (let i = 0; i < userEmbedding.length; i++) {
     updatedUser[i] =
-      userEmbedding[i] +
-      learningRate * (error * filmEmbedding[i] - lambda * userEmbedding[i]);
+      userEmbedding[i]! + learningRate * (error * filmEmbedding[i]! - lambda * userEmbedding[i]!);
   }
-  
-  // Persist user update
-  const { error: userUpdateError } = await supabaseClient
+
+  const { error: updateError } = await supabaseClient
     .from("User_Profiles")
     .update({ profile_embedding: Array.from(updatedUser) })
     .eq("user_id", userId);
-    
-  if (userUpdateError) {
-    throw new Error("Failed to update user embedding");
-  }
-  
+  if (updateError) throw new Error("Failed to update user embedding");
 };
 
-export const deleteRating = async ({
-  ratingId,
-  supabaseClient,
-}: DeleteRatingType) => {
-  const { error: deletionError } = await supabaseClient
-    .from("Ratings")
-    .delete()
-    .eq("rating_id", ratingId);
-
-  if (deletionError) {
-    throw new Error("Deleting Error");
-  }
+export const deleteRating = async ({ ratingId, supabaseClient }: DeleteRatingType) => {
+  const { error } = await supabaseClient.from("Ratings").delete().eq("rating_id", ratingId);
+  if (error) throw new Error("Failed to delete rating");
 };
 
 export const updateRating = async ({
@@ -271,12 +214,6 @@ export const updateRating = async ({
   supabaseClient,
   newRating,
 }: UpdateRatingType) => {
-  const { error: updateError } = await supabaseClient
-    .from("Ratings")
-    .update({ rating: newRating })
-    .eq("user_id", userId);
-
-  if (updateError) {
-    throw new Error("Failed to Update");
-  }
+  const { error } = await supabaseClient.from("Ratings").update({ rating: newRating }).eq("user_id", userId);
+  if (error) throw new Error("Failed to update rating");
 };
