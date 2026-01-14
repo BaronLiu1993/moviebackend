@@ -64,7 +64,7 @@ router.get("/keyword-search", async (req, res) => {
   }
 });
 
-router.get("/vector-search", async (req, res) => {
+router.get("/user-recommended-search", async (req, res) => {
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID;
 
