@@ -24,6 +24,11 @@ type BookmarkRequestType = {
   filmId: number;
 };
 
+type SimilaritySearchRequestType = {
+  query: string;
+  supabaseClient: SupabaseClient;
+};
+
 // Bookmark a Film
 export const bookmarkFilm = async ({supabaseClient, userId, filmId}: BookmarkRequestType) => {
   const { data, error } = await supabaseClient.from("bookmarks").insert({
@@ -60,6 +65,18 @@ export const getFriendFilms = async ({supabaseClient, userId}: SelectFriendsFilm
     throw new Error("Failed To Fetch Friend Films")
   }
 
+  return data
+};
+
+export const getSimilarFilms = async ({
+  query, supabaseClient
+}: SimilaritySearchRequestType) => {
+  const { data, error } = await supabaseClient.rpc("get_similar_films", {
+    query: query
+  })
+  if (error) {
+    throw new Error("Failed to Fetch Similar Films")
+  }
   return data
 };
 

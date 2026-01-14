@@ -55,6 +55,7 @@ router.put("/update-ratings", async (req, res) => {
   const userId = req.user?.sub as UUID
   try {
 
+    return res.status(200).json({message: "Updated Successfully"})
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
   }
