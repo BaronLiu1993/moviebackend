@@ -10,6 +10,9 @@ import queryRouter from "./router/query/queryRouter.js"
 import rateRouter from "./router/rate/rateRouter.js"
 import friendRouter from './router/friend/friendRouter.js';
 
+import insertRateQueue from './queue/insertRate/insertRateQueue.js';
+import deleteRateQueue from './queue/deleteRate/deleteRateQueue.js';
+
 const app = express()
 
 app.use("/v1/api/auth", authRouter)

@@ -1,6 +1,8 @@
 import { Router } from "express";
 import {
   acceptFriendRequest,
+  getFollowers,
+  getFollowing,
   getProfile,
   rejectFriendRequest,
   sendFriendRequest,
@@ -54,25 +56,56 @@ router.post("/decline-request", async (req, res) => {
   }
 });
 
+router.get("/get-following", async (req, res) => {
+  const userId = req.user?.sub as UUID;
+  const supabaseClient = req.supabaseClient;
+
+  if (!userId || !supabaseClient) {
+    return res.status(400).json({ message: "Missing Inputs" });
+  }
+  try {
+    const data = await getFollowing({ userId, supabaseClient });
+    return res.status(200).json({ data });
+  } catch {
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+router.get("/get-followers", async (req, res) => {
+  const userId = req.user?.sub as UUID;
+  const supabaseClient = req.supabaseClient;
+
+  if (!userId || !supabaseClient) {
+    return res.status(400).json({ message: "Missing Inputs" });
+  }
+
+  try {
+    const data = await getFollowers({ userId, supabaseClient });
+    return res.status(200).json({ data });
+  } catch {
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 router.get("/get-profile", async (req, res) => {
   const { friendId } = req.query;
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID;
 
-  if (!userId || !friendId || !supabaseClient || typeof friendId !== 'string') {
+  if (!userId || !friendId || !supabaseClient || typeof friendId !== "string") {
     return res.status(400).json({ message: "Missing Inputs" });
   }
 
   try {
-    const data = await getProfile({ 
-      userId, 
-      supabaseClient, 
-      friendId: friendId as UUID 
+    const data = await getProfile({
+      userId,
+      supabaseClient,
+      friendId: friendId as UUID,
     });
     return res.status(200).json({ data });
   } catch (error) {
-    return res.status(500).json({ 
-      message: error instanceof Error ? error.message : "Internal Server Error" 
+    return res.status(500).json({
+      message: error instanceof Error ? error.message : "Internal Server Error",
     });
   }
 });

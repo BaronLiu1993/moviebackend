@@ -185,12 +185,21 @@ export const rejectFriendRequest = async ({
 export const getFollowers = async ({
   userId,
   supabaseClient,
-}: BaseRequest) => {
+  page = 1,
+  pageSize = 10,
+}: BaseRequest & {
+  page?: number;
+  pageSize?: number;
+}) => {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
   const { data, error } = await supabaseClient
     .from("Friends")
     .select("request_id, user_id, status")
     .eq("friend_id", userId)
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .range(from, to);
 
   if (error) {
     throw new Error("Failed to fetch followers");
@@ -199,15 +208,25 @@ export const getFollowers = async ({
   return data;
 };
 
+
 // Returns outgoing friend requests and accepted friendships
 export const getFollowing = async ({
   userId,
   supabaseClient,
-}: BaseRequest) => {
+  page = 1,
+  pageSize = 10,
+}: BaseRequest & {
+  page?: number;
+  pageSize?: number;
+}) => {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
   const { data, error } = await supabaseClient
     .from("Friends")
     .select("request_id, friend_id, status")
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .range(from, to);
 
   if (error) {
     throw new Error("Failed to fetch following");

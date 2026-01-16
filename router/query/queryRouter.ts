@@ -10,7 +10,7 @@ import type { UUID } from "node:crypto";
 
 const router = Router();
 
-// Begin Search for Related Films
+// Begin Search By Taking Friend's Bookmarked Films (Friend's Film)
 router.get("/friend-search", verifyToken, async (req, res) => {
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID;
@@ -26,7 +26,8 @@ router.get("/friend-search", verifyToken, async (req, res) => {
   }
 });
 
-router.get("similarity-search", async (req, res) => {
+// Similarity Search using Text (Embeddings + Film Embeddings)
+router.get("/similarity-search", async (req, res) => {
   const { query } = req.query;
   const supabaseClient = req.supabaseClient;
 
@@ -44,9 +45,9 @@ router.get("similarity-search", async (req, res) => {
   }
 });
 
+// Keyword Search using Genres and Countries
 router.get("/keyword-search", async (req, res) => {
   const { genres, countries } = req.query;
-
   if (!genres || !countries) {
     return res.status(400).json({ message: "Missing Parameters" });
   }
@@ -59,11 +60,11 @@ router.get("/keyword-search", async (req, res) => {
     const data = await getRelatedFilms({ genres, countries });
     return res.status(200).json({ data });
   } catch (err) {
-    console.log(err);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
+// Begin Search for User Recommended Films (Film Embedding + User Embedding)
 router.get("/user-recommended-search", async (req, res) => {
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID;
