@@ -48,7 +48,6 @@ router.post("/oauth2callback", async (req, res) => {
       .eq("user_id", user.id)
       .single();
 
-    // Case if user does not exist that means they need to be register
     if (userDoesNotExist) {
       const { error: tokenInsertionError } = await supabaseClient
         .from("User_Profiles")
@@ -66,7 +65,6 @@ router.post("/oauth2callback", async (req, res) => {
         accessToken: session.access_token,
         refreshToken: session.refresh_token,
       });
-      // User exists and we need to send just log them in
     } else {
       return res.status(200).json({
         accessToken: session.access_token,
