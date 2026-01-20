@@ -1,15 +1,17 @@
 import { Worker } from "bullmq";
 import { Connection } from "../redis/redis.js";
+import { insertRating } from "../../service/rate/rateService.js";
+import { createSupabaseClient } from "../../service/supabase/configureSupabase.js";
 
 export const insertRateWorker = new Worker(
   "insert-rate",
   async (job) => {
-    const { userId } = job.data;
+    const { userId, filmId, rating, note, accessToken } = job.data;
     console.log(`[Worker] Starting job ${job.id} - Queue: insert-rate - User: ${userId}`);
     try {
       console.log(`[Worker] Processing job ${job.id} for user ${userId}`);
-      // TODO: implement actual insert rate logic or call the rate service here
-      
+      const supabaseClient = createSupabaseClient({accessToken});
+      insertRating({ supabaseClient, filmId, userId, rating, note });
       return { userId, processedAt: new Date().toISOString() };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

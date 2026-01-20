@@ -211,6 +211,7 @@ export const insertRating = async ({
   if (!rows || rows.length === 0) throw new Error("No rating found to update");
 };
 
+// Remove Rating, shift back the user embedding accordingly
 export const deleteRating = async ({ ratingId, supabaseClient }: DeleteRatingType) => {
   const { data, error } = await supabaseClient.from("Ratings").delete().eq("rating_id", ratingId);
   if (error) throw new Error("Failed to delete rating");

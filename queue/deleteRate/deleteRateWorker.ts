@@ -1,15 +1,19 @@
 import { Worker } from "bullmq";
 import { Connection } from "../redis/redis.js";
+import { deleteRating } from "../../service/rate/rateService.js";
+import { createSupabaseClient } from "../../service/supabase/configureSupabase.js";
 
 export const deleteRateWorker = new Worker(
   "delete-rate",
   async (job) => {
-    const { userId } = job.data;
-    console.log(`[Worker] Starting job ${job.id} - Queue: delete-rate - User: ${userId}`);
+    const { userId, ratingId, accessToken } = job.data;
+    console.log(
+      `[Worker] Starting job ${job.id} - Queue: delete-rate - User: ${userId}`,
+    );
     try {
       console.log(`[Worker] Processing job ${job.id} for user ${userId}`);
-      // TODO: implement actual insert rate logic or call the rate service here
-      
+      const supabaseClient = createSupabaseClient({ accessToken });
+      deleteRating({ supabaseClient, ratingId });
       return { userId, processedAt: new Date().toISOString() };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -24,7 +28,7 @@ export const deleteRateWorker = new Worker(
       max: 10,
       duration: 60000,
     },
-  }
+  },
 );
 
 deleteRateWorker.on("completed", (job, result) => {
@@ -33,7 +37,10 @@ deleteRateWorker.on("completed", (job, result) => {
 
 deleteRateWorker.on("failed", (job, err) => {
   const message = err instanceof Error ? err.message : String(err);
-  console.error(`[Worker] Job ${job?.id} failed - Attempt ${job?.attemptsMade}:`, message);
+  console.error(
+    `[Worker] Job ${job?.id} failed - Attempt ${job?.attemptsMade}:`,
+    message,
+  );
 });
 
 deleteRateWorker.on("stalled", (jobId) => {
