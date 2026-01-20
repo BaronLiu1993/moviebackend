@@ -7,7 +7,7 @@ const router = Router();
 router.post("/insert-ratings", async (req, res) => {
   const { filmId, rating, note } = req.body
   const userId = req.user?.sub as UUID
-
+  
   if (!filmId || !userId || !rating || !note || !req.supabaseClient) {
     return res.status(400).json({ message: "Missing Inputs"})
   }
