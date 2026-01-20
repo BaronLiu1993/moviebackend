@@ -95,10 +95,12 @@ const generateFilmEmbedding = async ({ filmId }: EmbeddingRequestType) => {
   ]);
 
   let inputString = "";
-  if (Array.isArray(movieMetadata.genres))
+  if (Array.isArray(movieMetadata.genres)) {
     inputString += movieMetadata.genres.map((g: any) => g.name).join(" ");
-  if (Array.isArray(movieKeywords.keywords))
-    inputString += movieKeywords.keywords.map((k: any) => k.name).join(" ");
+  }
+  if (Array.isArray(movieKeywords.keywords)) {
+    inputString += movieKeywords.keywords.map((k: any) => k.name).join(" ");  
+  }
 
   const response = await OpenAIClient.embeddings.create({
     model: "text-embedding-3-small",
@@ -107,7 +109,9 @@ const generateFilmEmbedding = async ({ filmId }: EmbeddingRequestType) => {
   });
 
   const embedding = response.data[0]?.embedding;
-  if (!embedding) throw new Error("Failed to generate film embedding");
+  if (!embedding) {
+    throw new Error("Failed to generate film embedding");
+  }
 
   const { error: insertionError } = await supabaseAdmin
     .from("Film")
@@ -117,10 +121,11 @@ const generateFilmEmbedding = async ({ filmId }: EmbeddingRequestType) => {
       release_year: movieMetadata.release_date,
     });
 
-  if (insertionError) throw new Error("Failed to insert film embedding");
+  if (insertionError) {
+    throw new Error("Failed to insert film embedding");
+  }
 };
 
-// CRUD operations
 export const selectRatings = async ({
   userId,
   supabaseClient,
@@ -161,7 +166,7 @@ export const insertRating = async ({
     .eq("user_id", userId)
     .single();
   const userEmbeddingRaw = userVector?.profile_embedding as number[] | undefined;
-  if (!userEmbeddingRaw) throw new Error("User embedding not found");
+  if (!userEmbeddingRaw || userVectorError) throw new Error("User embedding not found");
 
   // ensure film embedding exists
   const exists = await checkFilmExists({ supabaseClient, filmId });
@@ -174,7 +179,7 @@ export const insertRating = async ({
     .eq("film_id", filmId)
     .single();
   const filmEmbeddingRaw = filmVector?.film_embedding as number[] | undefined;
-  if (!filmEmbeddingRaw) throw new Error("Film embedding not found");
+  if (!filmEmbeddingRaw || filmVectorError) throw new Error("Film embedding not found");
 
   const userEmbedding = new Float32Array(userEmbeddingRaw);
   const filmEmbedding = new Float32Array(filmEmbeddingRaw);
@@ -197,16 +202,20 @@ export const insertRating = async ({
       userEmbedding[i]! + learningRate * (error * filmEmbedding[i]! - lambda * userEmbedding[i]!);
   }
 
-  const { error: updateError } = await supabaseClient
+  const { data, error: updateError } = await supabaseClient
     .from("User_Profiles")
     .update({ profile_embedding: Array.from(updatedUser) })
     .eq("user_id", userId);
   if (updateError) throw new Error("Failed to update user embedding");
+  const rows = data as any[] | null | undefined;
+  if (!rows || rows.length === 0) throw new Error("No rating found to update");
 };
 
 export const deleteRating = async ({ ratingId, supabaseClient }: DeleteRatingType) => {
-  const { error } = await supabaseClient.from("Ratings").delete().eq("rating_id", ratingId);
+  const { data, error } = await supabaseClient.from("Ratings").delete().eq("rating_id", ratingId);
   if (error) throw new Error("Failed to delete rating");
+  const rows = data as any[] | null | undefined;
+  if (!rows || rows.length === 0) throw new Error("No rating found to update");
 };
 
 export const updateRating = async ({
@@ -214,6 +223,13 @@ export const updateRating = async ({
   supabaseClient,
   newRating,
 }: UpdateRatingType) => {
-  const { error } = await supabaseClient.from("Ratings").update({ rating: newRating }).eq("user_id", userId);
+  const { data, error } = await supabaseClient
+    .from("Ratings")
+    .update({ rating: newRating })
+    .eq("user_id", userId);
+
   if (error) throw new Error("Failed to update rating");
+
+  const rows = data as any[] | null | undefined;
+  if (!rows || rows.length === 0) throw new Error("No rating found to update");
 };

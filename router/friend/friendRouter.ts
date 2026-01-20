@@ -8,10 +8,11 @@ import {
   sendFriendRequest,
 } from "../../service/auth/authService.js";
 import type { UUID } from "node:crypto";
+import { verifyToken } from "../../middleware/verifyToken.js";
 
 const router = Router();
 
-router.post("/send-request", async (req, res) => {
+router.post("/send-request", verifyToken, async (req, res) => {
   const { friendId } = req.body;
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID;
@@ -27,7 +28,7 @@ router.post("/send-request", async (req, res) => {
   }
 });
 
-router.post("/accept-request", async (req, res) => {
+router.post("/accept-request", verifyToken, async (req, res) => {
   const { requestId } = req.body;
   const supabaseClient = req.supabaseClient;
 
@@ -41,7 +42,7 @@ router.post("/accept-request", async (req, res) => {
   }
 });
 
-router.post("/decline-request", async (req, res) => {
+router.post("/decline-request", verifyToken, async (req, res) => {
   const { requestId } = req.body;
   const supabaseClient = req.supabaseClient;
 
@@ -56,7 +57,7 @@ router.post("/decline-request", async (req, res) => {
   }
 });
 
-router.get("/get-following", async (req, res) => {
+router.get("/get-following", verifyToken, async (req, res) => {
   const userId = req.user?.sub as UUID;
   const supabaseClient = req.supabaseClient;
 
@@ -71,7 +72,7 @@ router.get("/get-following", async (req, res) => {
   }
 });
 
-router.get("/get-followers", async (req, res) => {
+router.get("/get-followers", verifyToken, async (req, res) => {
   const userId = req.user?.sub as UUID;
   const supabaseClient = req.supabaseClient;
 
@@ -87,7 +88,7 @@ router.get("/get-followers", async (req, res) => {
   }
 });
 
-router.get("/get-profile", async (req, res) => {
+router.get("/get-profile", verifyToken, async (req, res) => {
   const { friendId } = req.query;
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID;
@@ -104,9 +105,7 @@ router.get("/get-profile", async (req, res) => {
     });
     return res.status(200).json({ data });
   } catch (error) {
-    return res.status(500).json({
-      message: error instanceof Error ? error.message : "Internal Server Error",
-    });
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
