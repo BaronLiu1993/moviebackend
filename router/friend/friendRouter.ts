@@ -23,7 +23,8 @@ router.post("/send-request", verifyToken, async (req, res) => {
 
   try {
     await sendFriendRequest({ userId, friendId, supabaseClient });
-  } catch {
+  } catch (err) {
+    console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -37,7 +38,8 @@ router.post("/accept-request", verifyToken, async (req, res) => {
   }
   try {
     await acceptFriendRequest({ requestId, supabaseClient });
-  } catch {
+  } catch (err) {
+    console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -52,7 +54,8 @@ router.post("/decline-request", verifyToken, async (req, res) => {
 
   try {
     await rejectFriendRequest({ requestId, supabaseClient });
-  } catch {
+  } catch (err) {
+      console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -67,7 +70,8 @@ router.get("/get-following", verifyToken, async (req, res) => {
   try {
     const data = await getFollowing({ userId, supabaseClient });
     return res.status(200).json({ data });
-  } catch {
+  } catch (err) {
+    console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -83,7 +87,8 @@ router.get("/get-followers", verifyToken, async (req, res) => {
   try {
     const data = await getFollowers({ userId, supabaseClient });
     return res.status(200).json({ data });
-  } catch {
+  } catch (err) {
+    console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -104,7 +109,8 @@ router.get("/get-profile", verifyToken, async (req, res) => {
       friendId: friendId as UUID,
     });
     return res.status(200).json({ data });
-  } catch (error) {
+  } catch (err) {
+    console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
