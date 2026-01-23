@@ -10,31 +10,36 @@ import type { UUID } from "node:crypto";
 
 const router = Router();
 
-router.post("/signup-with-google", async (req, res) => {
+router.get("/signup-with-google", async (req, res) => {
   try {
     const callbackURL = await handleSignIn();
     if (callbackURL) {
       res.redirect(callbackURL);
     }
-    return res.status(200).json({ message: "Signed In" });
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-router.post("/oauth2callback", async (req, res) => {
-  const code = req.body.code;
+router.get("/oauth2callback", async (req, res) => {
+  const code = req.query.code;
   const supabase = createSignInSupabase();
+
+  if (!code || typeof code !== "string") {
+    return res.status(400).json({ message: "Missing or Invalid Code" });
+  }
 
   try {
     const { data: tokenData, error: tokenDataError } =
       await supabase.auth.exchangeCodeForSession(code);
 
     if (tokenDataError || !tokenData?.session) {
+      console.log(tokenDataError);
       return res
         .status(400)
         .json({ message: "Failed to exchange code for session" });
     }
+
     const { session } = tokenData;
     const user = session.user;
 
@@ -85,6 +90,7 @@ router.post("/register", verifyToken, async (req, res) => {
 
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID
+  
   if (!supabaseClient || !inputString || !userId) {
     return res.status(400).json({ message: "Missing Imports" });
   }

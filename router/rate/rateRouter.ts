@@ -11,6 +11,7 @@ router.post("/insert-ratings", async (req, res) => {
   if (!filmId || !userId || !rating || !note || !req.supabaseClient) {
     return res.status(400).json({ message: "Missing Inputs"})
   }
+  
   const supabaseClient = req.supabaseClient;
   
   try {
