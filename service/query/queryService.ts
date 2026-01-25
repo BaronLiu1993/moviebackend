@@ -37,6 +37,8 @@ type SimilaritySearchRequest = SupabaseRequest & {
 type RelatedFilmRequest = {
   genres: string;
   countries: string;
+  fromYear: number;
+  toYear: number;
 };
 
 // service functions
@@ -108,9 +110,23 @@ export const getSimilarFilms = async ({
 export const getRelatedFilms = async ({
   genres,
   countries,
+  fromYear,
+  toYear,
 }: RelatedFilmRequest) => {
+  // Build query parameters for discovering popular movies
+  const params = new URLSearchParams({
+    with_origin_country: countries,
+    with_genres: genres,
+    sort_by: "popularity.desc",
+    "vote_count.gte": "300",
+    include_adult: "false",
+    page: "1",
+    "primary_release_date.gte": `${fromYear}-01-01`,
+    "primary_release_date.lte": `${toYear}-12-31`,
+  });
+
   const response = await fetch(
-    `${TMDB_API_BASE}/3/discover/movie?with_genres=${genres}&with_origin_country=${countries}&page=1`,
+    `${TMDB_API_BASE}/3/discover/movie?${params.toString()}`,
     {
       headers: {
         Authorization: `Bearer ${TMDB_API_KEY}`,
