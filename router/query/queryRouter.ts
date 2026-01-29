@@ -14,7 +14,7 @@ const router = Router();
 router.get("/friend-search", verifyToken, async (req, res) => {
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID;
-
+    
   if (!supabaseClient || !userId) {
     return res.status(401).json({ message: "Missing Supabase or UserID" });
   }

@@ -83,10 +83,8 @@ router.get("/oauth2callback", async (req, res) => {
 
 router.post("/register", verifyToken, async (req, res) => {
   // Input String is the Top Genres That They Said + Favourite Shows Mixed Together
-  const { genres, topMovies } = req.body;
-  const genreString = genres.join(' ')
-  const topMovieString = topMovies.join(' ')
-  const inputString = genreString + topMovieString;
+  const { topGenres, topMovies } = req.body;
+  const inputString = topGenres + topMovies;
 
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID
@@ -103,7 +101,8 @@ router.post("/register", verifyToken, async (req, res) => {
       .insert({
         profile_embedding: embedding,
         completed_registration: true,
-        genre: genres
+        genre: topGenres.split(","),
+        movie: topMovies.split(","),
       })
   
     
