@@ -4,6 +4,8 @@ import {
   getRecommendedFilms,
   getFriendFilms,
   getSimilarFilms,
+  getCurrentlyAiringKoreanDramas,
+  getPopularKoreanDramas,
 } from "../../service/query/queryService.js";
 import { verifyToken } from "../../middleware/verifyToken.js";
 import type { UUID } from "node:crypto";
@@ -14,7 +16,7 @@ const router = Router();
 router.get("/friend-search", verifyToken, async (req, res) => {
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID;
-    
+
   if (!supabaseClient || !userId) {
     return res.status(401).json({ message: "Missing Supabase or UserID" });
   }
@@ -104,6 +106,28 @@ router.get("/user-recommended-search", async (req, res) => {
     const data = await getRecommendedFilms({ supabaseClient, userId });
     return res.status(200).json({ data });
   } catch {
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// Get currently airing Korean dramas
+router.get("/korean/airing", async (req, res) => {
+  try {
+    const data = await getCurrentlyAiringKoreanDramas();
+    return res.status(200).json({ data });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// Get popular Korean dramas
+router.get("/korean/popular", async (req, res) => {
+  try {
+    const data = await getPopularKoreanDramas();
+    return res.status(200).json({ data });
+  } catch (err) {
+    console.log(err);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

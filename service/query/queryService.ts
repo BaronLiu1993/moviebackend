@@ -41,6 +41,8 @@ type RelatedFilmRequest = {
   toYear: number;
 };
 
+type KoreanDramaRequest = Record<string, never>;
+
 // service functions
 // Bookmarks a film for a user
 export const bookmarkFilm = async ({
@@ -136,6 +138,62 @@ export const getRelatedFilms = async ({
 
   if (!response.ok) {
     throw new Error("Failed to fetch related films");
+  }
+
+  return response.json();
+};
+
+// Fetches currently airing Korean dramas from TMDB
+export const getCurrentlyAiringKoreanDramas = async () => {
+  const today = new Date().toISOString().split("T")[0] || "";
+  const params = new URLSearchParams({
+    with_origin_country: "KR",
+    sort_by: "first_air_date.desc",
+    "air_date.gte": today,
+    include_adult: "false",
+    language: "en-US",
+    page: "1",
+  });
+
+  const response = await fetch(
+    `${TMDB_API_BASE}/3/discover/tv?${params.toString()}`,
+    {
+      headers: {
+        Authorization: `Bearer ${TMDB_API_KEY}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch currently airing Korean dramas");
+  }
+
+  return response.json();
+};
+
+// Fetches popular Korean dramas from TMDB
+export const getPopularKoreanDramas = async () => {
+  const params = new URLSearchParams({
+    with_origin_country: "KR",
+    sort_by: "popularity.desc",
+    include_adult: "false",
+    language: "en-US",
+    "first_air_date.gte": "2016-01-01",
+    "first_air_date.lte": "2026-12-31",
+    page: "1",
+  });
+
+  const response = await fetch(
+    `${TMDB_API_BASE}/3/discover/tv?${params.toString()}`,
+    {
+      headers: {
+        Authorization: `Bearer ${TMDB_API_KEY}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch popular Korean dramas");
   }
 
   return response.json();
