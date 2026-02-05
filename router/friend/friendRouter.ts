@@ -23,6 +23,7 @@ router.post("/send-request", verifyToken, async (req, res) => {
 
   try {
     await sendFriendRequest({ userId, friendId, supabaseClient });
+    return res.status(200).json({ message: "Friend request sent" });
   } catch (err) {
     console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
@@ -38,6 +39,7 @@ router.post("/accept-request", verifyToken, async (req, res) => {
   }
   try {
     await acceptFriendRequest({ requestId, supabaseClient });
+    return res.status(200).json({ message: "Friend request accepted" });
   } catch (err) {
     console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
@@ -55,7 +57,7 @@ router.post("/decline-request", verifyToken, async (req, res) => {
   try {
     await rejectFriendRequest({ requestId, supabaseClient });
   } catch (err) {
-      console.log(err)
+    console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

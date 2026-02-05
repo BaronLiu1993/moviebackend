@@ -87,10 +87,10 @@ router.post("/register", verifyToken, async (req, res) => {
   const inputString = topGenres + topMovies;
 
   const supabaseClient = req.supabaseClient;
-  const userId = req.user?.sub as UUID
+  const userId = req.user?.sub as UUID;
   
   if (!supabaseClient || !inputString || !userId) {
-    return res.status(400).json({ message: "Missing Imports" });
+    return res.status(400).json({ message: "Missing Inputs" });
   }
   
   const embedding = await generateInterestProfileVector({ inputString, supabaseClient, userId });
@@ -103,11 +103,11 @@ router.post("/register", verifyToken, async (req, res) => {
         completed_registration: true,
         genre: topGenres.split(","),
         movie: topMovies.split(","),
-      })
+      });
   
     
     if (insertionError) {
-      return res.status(400).json({ message: "Failed To Insert " });
+      return res.status(400).json({ message: "Failed to insert" });
     }
 
     return res.status(200).json({message: "Inserted"})

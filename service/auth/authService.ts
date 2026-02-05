@@ -73,7 +73,7 @@ const checkRegistration = async (
 ): Promise<boolean> => {
   const { data, error } = await supabaseClient
     .from("User_Profiles")
-    .select("finished_registration")
+    .select("completed_registration")
     .eq("user_id", userId)
     .single();
 
@@ -81,7 +81,7 @@ const checkRegistration = async (
     throw new Error("Failed to check registration status");
   }
 
-  return data.finished_registration;
+  return data.completed_registration;
 };
 
 // auth
@@ -265,7 +265,7 @@ export const getProfile = async ({
   const { data: profile, error: profileError } =
     await supabaseClient
       .from("User_Profiles")
-      .select("genres, movies")
+      .select("genre, movie")
       .eq("user_id", friendId)
       .single();
 
