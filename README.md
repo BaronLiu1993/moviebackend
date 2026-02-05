@@ -8,7 +8,7 @@ This is a full-featured REST API built with Express.js that integrates with Supa
 
 ## Key Features
 
-### 🔐 Authentication & User Management
+### Authentication & User Management
 - **Google OAuth 2.0 Integration** via Supabase Auth
 - JWT token-based authentication for protected endpoints
 - User profile registration with interest-based embeddings
@@ -26,13 +26,13 @@ This is a full-featured REST API built with Express.js that integrates with Supa
 - **Advanced Filtering**: Query for currently airing Korean dramas and popular titles
 - **Related Films**: Get recommendations based on film relationships
 
-### ⭐ Rating & Review System
+### Rating & Review System
 - **Movie Ratings**: Users can rate films (1-5 stars)
 - **Personal Notes**: Add text reviews/notes with ratings
 - **Async Processing**: Queue-based system for handling rating operations
 - **Rating Management**: View, update, and delete user ratings
 
-### 🚀 Performance & Reliability
+### Performance & Reliability
 - **Rate Limiting**: Global request rate limiting (200 requests per minute)
 - **CORS Support**: Configurable cross-origin resource sharing
 - **Redis Queues**: BullMQ for asynchronous job processing
