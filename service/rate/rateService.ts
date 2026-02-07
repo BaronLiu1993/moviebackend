@@ -50,9 +50,10 @@ type InsertRatingType = {
 type UpdateRatingType = {
   supabaseClient: SupabaseClient;
   userId: UUID;
+  ratingId: UUID;
   newRating: number;
 };
-type DeleteRatingType = { supabaseClient: SupabaseClient; ratingId: UUID };
+type DeleteRatingType = { supabaseClient: SupabaseClient; ratingId: UUID; userId: UUID };
 type EmbeddingRequestType = { filmId: number };
 type VectorType = Float32Array;
 type DotProductType = { u: VectorType; m: VectorType };
@@ -212,25 +213,85 @@ export const insertRating = async ({
 };
 
 // Remove Rating, shift back the user embedding accordingly
-export const deleteRating = async ({ ratingId, supabaseClient }: DeleteRatingType) => {
-  const { data, error } = await supabaseClient.from("Ratings").delete().eq("rating_id", ratingId);
-  if (error) throw new Error("Failed to delete rating");
-  const rows = data as any[] | null | undefined;
-  if (!rows || rows.length === 0) throw new Error("No rating found to update");
+export const deleteRating = async ({ ratingId, userId, supabaseClient }: DeleteRatingType) => {
+  // Verify rating belongs to user
+  const { data: rating, error: fetchError } = await supabaseClient
+    .from("Ratings")
+    .select("user_id")
+    .eq("rating_id", ratingId)
+    .single();
+
+  if (fetchError || !rating) throw new Error("Rating not found");
+  if (rating.user_id !== userId) throw new Error("Unauthorized");
+
+  const { error: deleteError } = await supabaseClient
+    .from("Ratings")
+    .delete()
+    .eq("rating_id", ratingId);
+  
+  if (deleteError) throw new Error("Failed to delete rating");
 };
 
 export const updateRating = async ({
+  ratingId,
   userId,
-  supabaseClient,
   newRating,
+  supabaseClient,
 }: UpdateRatingType) => {
-  const { data, error } = await supabaseClient
+  // Verify rating belongs to user
+  const { data: rating, error: fetchError } = await supabaseClient
+    .from("Ratings")
+    .select("*")
+    .eq("rating_id", ratingId)
+    .single();
+
+  if (fetchError || !rating) throw new Error("Rating not found");
+  if (rating.user_id !== userId) throw new Error("Unauthorized");
+
+  // Update the rating
+  const { error: updateError } = await supabaseClient
     .from("Ratings")
     .update({ rating: newRating })
+    .eq("rating_id", ratingId);
+
+  if (updateError) throw new Error("Failed to update rating");
+
+  // Recalculate user embedding (same as insertRating)
+  const normalizedRating = (newRating - 3) / 2;
+  const confidence = confidenceMap[newRating] ?? 0.5;
+
+  const { data: userVector } = await supabaseClient
+    .from("User_Profiles")
+    .select("profile_embedding")
+    .eq("user_id", userId)
+    .single();
+
+  const { data: filmVector } = await supabaseClient
+    .from("Film")
+    .select("film_embedding")
+    .eq("film_id", rating.film_id)
+    .single();
+
+  if (!userVector?.profile_embedding || !filmVector?.film_embedding) {
+    throw new Error("Embeddings not found");
+  }
+
+  const userEmbedding = new Float32Array(userVector.profile_embedding as number[]);
+  const filmEmbedding = new Float32Array(filmVector.film_embedding as number[]);
+
+  const prediction = computeDotProduct({ u: userEmbedding, m: filmEmbedding });
+  const error = confidence * (normalizedRating - prediction);
+
+  const updatedUser = new Float32Array(userEmbedding.length);
+  for (let i = 0; i < userEmbedding.length; i++) {
+    updatedUser[i] =
+      userEmbedding[i]! + learningRate * (error * filmEmbedding[i]! - lambda * userEmbedding[i]!);
+  }
+
+  const { error: embedError } = await supabaseClient
+    .from("User_Profiles")
+    .update({ profile_embedding: Array.from(updatedUser) })
     .eq("user_id", userId);
 
-  if (error) throw new Error("Failed to update rating");
-
-  const rows = data as any[] | null | undefined;
-  if (!rows || rows.length === 0) throw new Error("No rating found to update");
+  if (embedError) throw new Error("Failed to update user embedding");
 };

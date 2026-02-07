@@ -52,7 +52,6 @@ router.post("/accept-request", verifyToken, async (req, res) => {
     await acceptFriendRequest({ userId, requestId, supabaseClient });
     return res.status(201).send();
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

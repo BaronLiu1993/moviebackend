@@ -24,6 +24,8 @@ type SupabaseRequest = {
 
 type UserRequest = SupabaseRequest & {
   userId: UUID;
+  limit?: number;
+  offset?: number;
 };
 
 type BookmarkRequest = UserRequest & {
@@ -68,13 +70,17 @@ export const bookmarkFilm = async ({
 export const getRecommendedFilms = async ({
   supabaseClient,
   userId,
+  limit = 20,
+  offset = 0,
 }: UserRequest) => {
   try {
-    console.log(`[getRecommendedFilms] Fetching recommendations for user: ${userId}`);
-    
+    console.log(`[getRecommendedFilms] Fetching recommendations for user: ${userId} (limit: ${limit}, offset: ${offset})`);
     const { data, error } = await supabaseClient.rpc("get_recommended", {
       user_id: userId,
+      limit_count: limit,
+      offset_count: offset,
     });
+
 
     if (error) {
       console.error(`[getRecommendedFilms] RPC error for user ${userId}:`, error);

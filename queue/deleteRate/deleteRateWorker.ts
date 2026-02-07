@@ -13,7 +13,7 @@ export const deleteRateWorker = new Worker(
     try {
       console.log(`[Worker] Processing job ${job.id} for user ${userId}`);
       const supabaseClient = createSupabaseClient({ accessToken });
-      deleteRating({ supabaseClient, ratingId });
+      await deleteRating({ userId, supabaseClient, ratingId });
       return { userId, processedAt: new Date().toISOString() };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
