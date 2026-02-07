@@ -23,9 +23,20 @@ router.post("/send-request", verifyToken, async (req, res) => {
 
   try {
     await sendFriendRequest({ userId, friendId, supabaseClient });
-    return res.status(200).json({ message: "Friend request sent" });
+    return res.status(204).send();
   } catch (err) {
-    console.log(err)
+    const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
+    console.log(err);
+    
+    // Provide specific error responses based on validation
+    if (errorMessage.includes("Cannot send friend request to yourself")) {
+      return res.status(400).json({ message: errorMessage });
+    } else if (errorMessage.includes("User not found")) {
+      return res.status(404).json({ message: errorMessage });
+    } else if (errorMessage.includes("already") || errorMessage.includes("pending")) {
+      return res.status(409).json({ message: errorMessage });
+    }
+    
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -39,7 +50,7 @@ router.post("/accept-request", verifyToken, async (req, res) => {
   }
   try {
     await acceptFriendRequest({ requestId, supabaseClient });
-    return res.status(200).json({ message: "Friend request accepted" });
+    return res.status(204).send();
   } catch (err) {
     console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
@@ -56,6 +67,7 @@ router.post("/decline-request", verifyToken, async (req, res) => {
 
   try {
     await rejectFriendRequest({ requestId, supabaseClient });
+    return res.status(204).send();
   } catch (err) {
     console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });

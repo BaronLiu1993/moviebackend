@@ -110,7 +110,7 @@ router.post("/register", verifyToken, async (req, res) => {
       return res.status(400).json({ message: "Failed to insert" });
     }
 
-    return res.status(200).json({message: "Inserted"})
+    return res.status(204)
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
   }

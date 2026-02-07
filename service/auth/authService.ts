@@ -137,6 +137,39 @@ export const sendFriendRequest = async ({
   friendId,
   supabaseClient,
 }: FriendRequest): Promise<void> => {
+  // Check if user is trying to add themselves
+  if (userId === friendId) {
+    throw new Error("Cannot send friend request to yourself");
+  }
+
+  // Check if friendId user exists
+  const { data: friendExists, error: friendCheckError } = await supabaseClient
+    .from("User_Profiles")
+    .select("user_id")
+    .eq("user_id", friendId)
+    .single();
+
+  if (friendCheckError || !friendExists) {
+    throw new Error("User not found");
+  }
+
+  // Check if request already exists (pending or accepted)
+  const { data: existingRequest, error: existingError } = await supabaseClient
+    .from("Friends")
+    .select("request_id, status")
+    .eq("user_id", userId)
+    .eq("friend_id", friendId)
+    .single();
+
+  if (!existingError && existingRequest) {
+    if (existingRequest.status === "pending") {
+      throw new Error("Friend request already pending");
+    } else if (existingRequest.status === "accepted") {
+      throw new Error("Already friends with this user");
+    }
+  }
+
+  // Create the friend request
   const { error } = await supabaseClient
     .from("Friends")
     .insert({

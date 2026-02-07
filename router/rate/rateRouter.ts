@@ -16,7 +16,7 @@ router.post("/insert-ratings", async (req, res) => {
   
   try {
     await insertRating({filmId, userId, rating, note, supabaseClient})
-    return res.status(200).json({message: "Inserted Successfully"})
+    return res.status(204).send();
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
   }
@@ -46,7 +46,8 @@ router.delete("/delete-ratings", async (req, res) => {
   }
   const supabaseClient = req.supabaseClient;
   try {
-    await deleteRating({ratingId, supabaseClient})
+    await deleteRating({ratingId, supabaseClient});
+    return res.status(204).send();
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
   }
@@ -55,8 +56,7 @@ router.delete("/delete-ratings", async (req, res) => {
 router.put("/update-ratings", async (req, res) => {
   const userId = req.user?.sub as UUID
   try {
-
-    return res.status(200).json({message: "Updated Successfully"})
+    return res.status(204).send();
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
   }
