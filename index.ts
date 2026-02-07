@@ -15,11 +15,6 @@ import deleteRateQueue from './queue/deleteRate/deleteRateQueue.js';
 
 const app = express()
 
-app.use("/v1/api/auth", authRouter)
-app.use("/v1/api/query", queryRouter)
-app.use("/v1/api/rate", rateRouter)
-app.use("/v1/api/friend", friendRouter)
-
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN || "http://localhost:3000",
@@ -30,10 +25,14 @@ app.use(
   })
 );
 
-
 app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded());
+
+app.use("/v1/api/auth", authRouter)
+app.use("/v1/api/query", queryRouter)
+app.use("/v1/api/rate", rateRouter)
+app.use("/v1/api/friend", friendRouter)
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000,  
   max: 200,                

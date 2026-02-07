@@ -16,7 +16,7 @@ router.post("/insert-ratings", async (req, res) => {
   
   try {
     await insertRating({filmId, userId, rating, note, supabaseClient})
-    return res.status(204).send();
+    return res.status(201).send();
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
   }

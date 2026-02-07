@@ -7,6 +7,7 @@ import { createSignInSupabase } from "../../service/supabase/configureSupabase.j
 import { verifyToken } from "../../middleware/verifyToken.js";
 import { createSupabaseClient } from "../../service/supabase/configureSupabase.js";
 import type { UUID } from "node:crypto";
+import { createServerSideSupabaseClient } from "../../service/supabase/configureSupabase.js";
 
 const router = Router();
 
@@ -81,14 +82,13 @@ router.get("/oauth2callback", async (req, res) => {
   }
 });
 
-router.post("/register", verifyToken, async (req, res) => {
+router.post("/register", async (req, res) => {
   // Input String is the Top Genres That They Said + Favourite Shows Mixed Together
-  const { topGenres, topMovies } = req.body;
-  const inputString = topGenres + topMovies;
-
-  const supabaseClient = req.supabaseClient;
-  const userId = req.user?.sub as UUID;
-  
+  const { genres, movies, userId } = req.body;
+  const inputString = `${genres}, ${movies}`;
+  //const supabaseClient = req.supabaseClient;
+  //const userId = req.user?.sub as UUID;
+  const supabaseClient = createServerSideSupabaseClient();
   if (!supabaseClient || !inputString || !userId) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
@@ -98,16 +98,18 @@ router.post("/register", verifyToken, async (req, res) => {
     // Profile embedding is the embedding for each individual person
     const { error: insertionError } = await supabaseClient
       .from("User_Profiles")
-      .insert({
+      .update({
         profile_embedding: embedding,
         completed_registration: true,
-        genre: topGenres.split(","),
-        movie: topMovies.split(","),
-      });
+        genres: genres.split(",").map((genre: string) => genre.trim()),
+        movies: movies.split(",").map((movie: string) => movie.trim()),
+      })
+      .eq("user_id", userId);
   
     
     if (insertionError) {
-      return res.status(400).json({ message: "Failed to insert" });
+      console.log(insertionError);
+      return res.status(400).json({ message: "Failed to Update" });
     }
 
     return res.status(204)

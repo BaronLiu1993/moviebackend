@@ -1,12 +1,12 @@
 import { Router } from "express";
 import {
+  sendFriendRequest,
   acceptFriendRequest,
+  rejectFriendRequest,
   getFollowers,
   getFollowing,
   getProfile,
-  rejectFriendRequest,
-  sendFriendRequest,
-} from "../../service/auth/authService.js";
+} from "../../service/friend/friendService.js";
 import type { UUID } from "node:crypto";
 import { verifyToken } from "../../middleware/verifyToken.js";
 
@@ -23,10 +23,9 @@ router.post("/send-request", verifyToken, async (req, res) => {
 
   try {
     await sendFriendRequest({ userId, friendId, supabaseClient });
-    return res.status(204).send();
+    return res.status(201).send();
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
-    console.log(err);
     
     // Provide specific error responses based on validation
     if (errorMessage.includes("Cannot send friend request to yourself")) {
@@ -44,15 +43,16 @@ router.post("/send-request", verifyToken, async (req, res) => {
 router.post("/accept-request", verifyToken, async (req, res) => {
   const { requestId } = req.body;
   const supabaseClient = req.supabaseClient;
+  const userId = req.user?.sub as UUID;
 
-  if (!requestId || !supabaseClient) {
+  if (!requestId || !supabaseClient || !userId) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
   try {
-    await acceptFriendRequest({ requestId, supabaseClient });
-    return res.status(204).send();
+    await acceptFriendRequest({ userId, requestId, supabaseClient });
+    return res.status(201).send();
   } catch (err) {
-    console.log(err)
+    const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -60,16 +60,17 @@ router.post("/accept-request", verifyToken, async (req, res) => {
 router.post("/decline-request", verifyToken, async (req, res) => {
   const { requestId } = req.body;
   const supabaseClient = req.supabaseClient;
+  const userId = req.user?.sub as UUID;
 
-  if (!requestId || !supabaseClient) {
+  if (!requestId || !supabaseClient || !userId) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
 
   try {
-    await rejectFriendRequest({ requestId, supabaseClient });
+    await rejectFriendRequest({ userId, requestId, supabaseClient });
     return res.status(204).send();
   } catch (err) {
-    console.log(err)
+    const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -85,7 +86,7 @@ router.get("/get-following", verifyToken, async (req, res) => {
     const data = await getFollowing({ userId, supabaseClient });
     return res.status(200).json({ data });
   } catch (err) {
-    console.log(err)
+    const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -102,7 +103,7 @@ router.get("/get-followers", verifyToken, async (req, res) => {
     const data = await getFollowers({ userId, supabaseClient });
     return res.status(200).json({ data });
   } catch (err) {
-    console.log(err)
+    const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -124,7 +125,7 @@ router.get("/get-profile", verifyToken, async (req, res) => {
     });
     return res.status(200).json({ data });
   } catch (err) {
-    console.log(err)
+    const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
