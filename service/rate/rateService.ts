@@ -295,3 +295,30 @@ export const updateRating = async ({
 
   if (embedError) throw new Error("Failed to update user embedding");
 };
+
+export const handleClick = async ({
+  userId,
+  filmId,
+  supabaseClient,
+}: { userId: UUID; filmId: number; supabaseClient: SupabaseClient }) => {
+  //
+  try {
+    
+  } catch (err) {
+    console.error("Failed to log recommendation click:", err);
+    // Don't throw error since this is non-critical
+  }
+}
+
+export const handleImpression = async ({
+  userId,
+  filmId,
+  supabaseClient,
+}: { userId: UUID; filmId: number; supabaseClient: SupabaseClient }) => {
+  try {
+    
+  } catch (err) {
+    console.error("Failed to log recommendation impression:", err);
+    // Don't throw error since this is non-critical
+  }
+}
