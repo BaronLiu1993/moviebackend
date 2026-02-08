@@ -61,8 +61,6 @@ type DotProductType = { u: VectorType; m: VectorType };
 type KafkaEvent = {
   userId: UUID;
   filmId: number;
-  timestamp: string;
-  type: "click" | "like" | "impression";
   name?: string;
   genre?: string;
 };

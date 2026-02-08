@@ -9,6 +9,7 @@ import authRouter from "./router/auth/authRouter.js"
 import queryRouter from "./router/query/queryRouter.js"
 import rateRouter from "./router/rate/rateRouter.js"
 import friendRouter from './router/friend/friendRouter.js';
+import analyticsRouter from "./router/analytics/analyticsRouter.js"
 
 import insertRateQueue from './queue/insertRate/insertRateQueue.js';
 import deleteRateQueue from './queue/deleteRate/deleteRateQueue.js';
@@ -33,6 +34,7 @@ app.use("/v1/api/auth", authRouter)
 app.use("/v1/api/query", queryRouter)
 app.use("/v1/api/rate", rateRouter)
 app.use("/v1/api/friend", friendRouter)
+app.use("/v1/api/analytics", analyticsRouter)
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000,  
   max: 200,                
@@ -47,7 +49,7 @@ app.get("/health", (req, res) => {
     return res.status(200).json({ status: "ok"})
 })
 
-app.listen(8000, () => {
+app.listen(8000, async () => {
     console.log(`Running on Server`)
 })
 
