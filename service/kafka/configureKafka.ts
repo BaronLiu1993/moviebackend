@@ -19,7 +19,6 @@ export async function initProducer() {
 export async function sendEventToKafka(topic: string, event: object) {
   try {
     await initProducer();
-    await producer.connect();
     await producer.send({
       topic,
       messages: [{ value: JSON.stringify(event) }],

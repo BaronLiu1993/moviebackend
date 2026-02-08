@@ -13,6 +13,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@clickhouse/client": "^1.17.0",
     "@supabase/supabase-js": "^2.89.0",
     "body-parser": "^2.2.2",
     "bullmq": "^5.66.5",
