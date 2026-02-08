@@ -13,7 +13,7 @@ declare module "express-serve-static-core" {
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY!;
 const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET!;
-const SUPABASE_JWT_ALGORITHM = process.env.SUPABASE_JWT_ALGORITHM as "HS256" | "HS512" | "RS256"; // adjust if needed
+const SUPABASE_JWT_ALGORITHM = process.env.SUPABASE_JWT_ALGORITHM as "HS256"; 
 
 export async function verifyToken(
   req: Request,
