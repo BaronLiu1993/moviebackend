@@ -6,7 +6,6 @@ import {
 import { createSignInSupabase } from "../../service/supabase/configureSupabase.js";
 import { verifyToken } from "../../middleware/verifyToken.js";
 import { createSupabaseClient } from "../../service/supabase/configureSupabase.js";
-import type { UUID } from "node:crypto";
 import { createServerSideSupabaseClient } from "../../service/supabase/configureSupabase.js";
 
 const router = Router();
@@ -112,7 +111,7 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ message: "Failed to Update" });
     }
 
-    return res.status(204)
+    return res.status(204).send();
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
   }

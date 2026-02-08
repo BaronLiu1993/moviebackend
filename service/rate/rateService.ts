@@ -14,6 +14,7 @@ import type { UUID } from "node:crypto";
 import OpenAI from "openai";
 import dotenv from "dotenv";
 import { createServerSideSupabaseClient } from "../supabase/configureSupabase.js";
+import { sendEventToKafka } from "../kafka/configureKafka.js";
 
 dotenv.config();
 
@@ -57,7 +58,14 @@ type DeleteRatingType = { supabaseClient: SupabaseClient; ratingId: UUID; userId
 type EmbeddingRequestType = { filmId: number };
 type VectorType = Float32Array;
 type DotProductType = { u: VectorType; m: VectorType };
-
+type KafkaEvent = {
+  userId: UUID;
+  filmId: number;
+  timestamp: string;
+  type: "click" | "like" | "impression";
+  name?: string;
+  genre?: string;
+};
 // helpers
 const computeDotProduct = ({ u, m }: DotProductType): number => {
   if (u.length !== m.length) throw new Error("Vector dimension mismatch");
@@ -296,29 +304,64 @@ export const updateRating = async ({
   if (embedError) throw new Error("Failed to update user embedding");
 };
 
-export const handleClick = async ({
+export const handleLike = async ({
   userId,
   filmId,
-  supabaseClient,
-}: { userId: UUID; filmId: number; supabaseClient: SupabaseClient }) => {
-  //
+  name,
+  genre
+}: KafkaEvent) => {
   try {
-    
+    await sendEventToKafka("recommendation-likes", {
+      userId,
+      filmId,
+      timestamp: new Date().toISOString(),
+      type: "like",
+      name,
+      genre
+    });
   } catch (err) {
-    console.error("Failed to log recommendation click:", err);
-    // Don't throw error since this is non-critical
+    console.error("Failed to log recommendation like:", err);
   }
 }
 
+export const handleClick = async ({
+  userId,
+  filmId,
+  name,
+  genre,
+}: KafkaEvent) => {
+  try {
+    await sendEventToKafka("recommendation-clicks", {
+      userId,
+      filmId,
+      timestamp: new Date().toISOString(),
+      type: "click",
+      name,
+      genre
+    });
+    
+  } catch (err) {
+    console.error("Failed to log recommendation click:", err);
+  }
+}
+
+// Click and view for 5 seconds or more counts as an impression
 export const handleImpression = async ({
   userId,
   filmId,
-  supabaseClient,
-}: { userId: UUID; filmId: number; supabaseClient: SupabaseClient }) => {
+  name,
+  genre,
+}: KafkaEvent) => {
   try {
-    
+    await sendEventToKafka("recommendation-impressions", {
+      userId,
+      filmId,
+      timestamp: new Date().toISOString(),
+      type: "impression",
+      name,
+      genre
+    }); 
   } catch (err) {
     console.error("Failed to log recommendation impression:", err);
-    // Don't throw error since this is non-critical
   }
 }
