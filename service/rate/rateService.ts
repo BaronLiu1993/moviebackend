@@ -64,6 +64,7 @@ type KafkaEvent = {
   name?: string;
   genre?: string;
 };
+
 // helpers
 const computeDotProduct = ({ u, m }: DotProductType): number => {
   if (u.length !== m.length) throw new Error("Vector dimension mismatch");
