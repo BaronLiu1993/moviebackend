@@ -11,9 +11,6 @@ import rateRouter from "./router/rate/rateRouter.js"
 import friendRouter from './router/friend/friendRouter.js';
 import analyticsRouter from "./router/analytics/analyticsRouter.js"
 
-import insertRateQueue from './queue/insertRate/insertRateQueue.js';
-import deleteRateQueue from './queue/deleteRate/deleteRateQueue.js';
-
 const app = express()
 
 app.use(

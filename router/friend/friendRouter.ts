@@ -69,7 +69,6 @@ router.post("/decline-request", verifyToken, async (req, res) => {
     await rejectFriendRequest({ userId, requestId, supabaseClient });
     return res.status(204).send();
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
