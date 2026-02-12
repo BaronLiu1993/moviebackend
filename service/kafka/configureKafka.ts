@@ -1,19 +1,32 @@
-import { Kafka } from "kafkajs";
+import { Kafka, Partitioners } from "kafkajs";
+
+const brokers = [process.env.KAFKA_BROKER_URL || "localhost:9092"];
 
 const kafka = new Kafka({
   clientId: "recommendation-events-streaming",
-  brokers: ["localhost:9092"],
+  brokers
 });
 
-const producer = kafka.producer();
+const producer = kafka.producer({
+  createPartitioner: Partitioners.LegacyPartitioner,
+});
+
 let isConnected = false;
 
-export async function initProducer() {
-  if (!isConnected) {
-    await producer.connect();
-    isConnected = true;
-    console.log("[Kafka] Producer connected");
+export async function initProducer(retries = 6, delayMs = 2000) {
+  if (isConnected) return;
+  for (let i = 0; i < retries; i++) {
+    try {
+      await producer.connect();
+      isConnected = true;
+      console.log("[Kafka] Producer connected");
+      return;
+    } catch (err) {
+      console.warn(`[Kafka] Connect attempt ${i + 1} failed, retrying in ${delayMs}ms`);
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
   }
+  throw new Error("Failed to connect Kafka producer after retries");
 }
 
 export async function sendEventToKafka(topic: string, event: object) {
