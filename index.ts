@@ -35,6 +35,7 @@ app.use("/v1/api/query", queryRouter)
 app.use("/v1/api/rate", rateRouter)
 app.use("/v1/api/friend", friendRouter)
 app.use("/v1/api/analytics", analyticsRouter)
+
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000,  
   max: 200,                
@@ -43,7 +44,6 @@ const limiter = rateLimit({
 });
 
 app.use(limiter);
-
 
 app.get("/health", (req, res) => {
     return res.status(200).json({ status: "ok"})

@@ -6,7 +6,7 @@
  *
  * It ensures environment variables are present and sets appropriate headers/auth options
  * depending on the type of client being created.
- */
+*/
 
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
