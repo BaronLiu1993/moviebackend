@@ -148,6 +148,8 @@ export const selectRatings = async ({
   return data;
 };
 
+// Fix this so that the insert rating has better vector calculations and chunking as well.
+
 export const insertRating = async ({
   supabaseClient,
   rating,
@@ -159,6 +161,7 @@ export const insertRating = async ({
   const confidence = confidenceMap[rating] ?? 0.5;
 
   // insert rating
+
   const { error: insertError } = await supabaseClient.from("Ratings").insert({
     user_id: userId,
     rating,
