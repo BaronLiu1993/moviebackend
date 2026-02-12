@@ -2,7 +2,7 @@ import { Router } from "express";
 import {
   handleClick,
   handleImpression,
-  handleLike,
+  handleRating,
 } from "../../service/rate/rateService.js";
 
 const router = Router();
@@ -55,7 +55,7 @@ router.post("/like", async (req, res) => {
     return res.status(400).json({ message: "Missing Inputs" });
   }
   try {
-    await handleLike({
+    await handleRating({
       userId,
       filmId,
       name,

@@ -303,7 +303,7 @@ export const updateRating = async ({
   if (embedError) throw new Error("Failed to update user embedding");
 };
 
-export const handleLike = async ({
+export const handleRating = async ({
   userId,
   filmId,
   name,
@@ -314,7 +314,7 @@ export const handleLike = async ({
       userId,
       filmId,
       timestamp: new Date().toISOString(),
-      type: "like",
+      type: "rating",
       name,
       genre
     });

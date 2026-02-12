@@ -66,6 +66,10 @@ export const bookmarkFilm = async ({
   }
 };
 
+
+//Generate feed for users precompute -> cache -> fetch from cache (Redis) -> fallback to real-time computation if cache miss
+
+
 // Returns personalized film recommendations based on user embeddings
 export const getRecommendedFilms = async ({
   supabaseClient,

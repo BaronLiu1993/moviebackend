@@ -38,6 +38,10 @@ interface GetProfileRequest extends BaseFriendRequest {
   friendId: UUID;
 }
 
+interface EnhanceProfileRequest extends GetProfileRequest {
+  filmId: number;
+}
+
 // helpers
 // Checks whether two users have an accepted friendship relationship
 const checkIsFriends = async (
@@ -256,6 +260,26 @@ export const getProfile = async ({
       profile,
     };
   } catch (err) {
+    throw err;
+  }
+};
+
+export const enhanceFriendProfile = async ({
+  userId,
+  friendId,
+  filmId,
+  supabaseClient,
+}: EnhanceProfileRequest) => {
+  try {
+    const isFriend = await checkIsFriends(supabaseClient, userId, friendId);
+
+    if (!isFriend) {
+      throw new Error("Users are not friends");
+    }
+
+    
+    
+   } catch (err) {
     throw err;
   }
 };
