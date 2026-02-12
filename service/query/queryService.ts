@@ -71,6 +71,7 @@ export const bookmarkFilm = async ({
 
 
 // Returns personalized film recommendations based on user embeddings
+// Deprecated: Use getRecommendedFilms instead which includes pagination
 export const getRecommendedFilms = async ({
   supabaseClient,
   userId,
@@ -124,78 +125,8 @@ export const getFriendFilms = async ({
   }
 };
 
-// Performs a semantic search for films using text embeddings
-export const getSimilarFilms = async ({
-  supabaseClient,
-  query,
-}: SimilaritySearchRequest) => {
-  try {
-    console.log(`[getSimilarFilms] Searching films with query: "${query}"`);
-    
-    const { data, error } = await supabaseClient.rpc("get_similar_films", {
-      query,
-    });
-
-    if (error) {
-      console.error(`[getSimilarFilms] RPC error for query "${query}":`, error);
-      throw new Error(`Failed to fetch similar films: ${error.message}`);
-    }
-    
-    console.log(`[getSimilarFilms] Successfully found ${data?.length || 0} similar films`);
-    return data;
-  } catch (err) {
-    console.error(`[getSimilarFilms] Exception:`, err);
-    throw err;
-  }
-};
-
-// Fetches related films from TMDB using genres and origin countries
-export const getRelatedFilms = async ({
-  genres,
-  countries,
-  fromYear,
-  toYear,
-}: RelatedFilmRequest) => {
-  try {
-    console.log(`[getRelatedFilms] Fetching related films - genres: ${genres}, countries: ${countries}, years: ${fromYear}-${toYear}`);
-    
-    // Build query parameters for discovering popular movies
-    const params = new URLSearchParams({
-      with_origin_country: countries,
-      with_genres: genres,
-      sort_by: "popularity.desc",
-      "vote_count.gte": "300",
-      include_adult: "false",
-      page: "1",
-      "primary_release_date.gte": `${fromYear}-01-01`,
-      "primary_release_date.lte": `${toYear}-12-31`,
-    });
-
-    const response = await fetch(
-      `${TMDB_API_BASE}/3/discover/movie?${params.toString()}`,
-      {
-        headers: {
-          Authorization: `Bearer ${TMDB_API_KEY}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      console.error(`[getRelatedFilms] TMDB API error - Status: ${response.status}`, response.statusText);
-      throw new Error(`Failed to fetch related films: HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-    console.log(`[getRelatedFilms] Successfully fetched ${data?.results?.length || 0} related films`);
-    return data;
-  } catch (err) {
-    console.error(`[getRelatedFilms] Exception:`, err);
-    throw err;
-  }
-};
-
 // Fetches currently airing Korean dramas from TMDB
-export const getCurrentlyAiringKoreanDramas = async () => {
+export const getCurrentlyAiringDramas = async () => {
   try {
     console.log(`[getCurrentlyAiringKoreanDramas] Fetching currently airing Korean dramas`);
     
@@ -233,7 +164,7 @@ export const getCurrentlyAiringKoreanDramas = async () => {
 };
 
 // Fetches popular Korean dramas from TMDB
-export const getPopularKoreanDramas = async () => {
+export const getPopularDramas = async () => {
   try {
     console.log(`[getPopularKoreanDramas] Fetching popular Korean dramas`);
     
