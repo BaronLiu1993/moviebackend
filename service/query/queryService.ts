@@ -155,10 +155,8 @@ export const getCurrentlyAiringDramas = async () => {
     }
 
     const data = await response.json();
-    console.log(`[getCurrentlyAiringKoreanDramas] Successfully fetched ${data?.results?.length || 0} dramas`);
     return data;
   } catch (err) {
-    console.error(`[getCurrentlyAiringKoreanDramas] Exception:`, err);
     throw err;
   }
 };
