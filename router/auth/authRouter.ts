@@ -4,7 +4,6 @@ import {
   handleSignIn,
 } from "../../service/auth/authService.js";
 import { createSignInSupabase } from "../../service/supabase/configureSupabase.js";
-import { verifyToken } from "../../middleware/verifyToken.js";
 import { createSupabaseClient } from "../../service/supabase/configureSupabase.js";
 import { createServerSideSupabaseClient } from "../../service/supabase/configureSupabase.js";
 

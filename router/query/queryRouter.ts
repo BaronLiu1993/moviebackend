@@ -2,6 +2,8 @@ import { Router } from "express";
 import {
   getRecommendedFilms,
   getFriendFilms,
+  getCurrentlyAiringDramas,
+  getPopularDramas
 } from "../../service/query/queryService.js";
 import { verifyToken } from "../../middleware/verifyToken.js";
 import type { UUID } from "node:crypto";
@@ -42,6 +44,26 @@ router.get("/recommendations", async (req, res) => {
     const data = await getRecommendedFilms({ supabaseClient, userId, limit, offset });
     return res.status(200).json({ data });
   } catch (err){
+    console.log(err);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+router.get("/currently-airing", async (req, res) => {
+  try {
+    const data = await getCurrentlyAiringDramas();
+    return res.status(200).json({ data });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+router.get("/popular", async (req, res) => {
+  try {
+    const data = await getPopularDramas();
+    return res.status(200).json({ data });
+  } catch (err) {
     console.log(err);
     return res.status(500).json({ message: "Internal Server Error" });
   }
