@@ -9,7 +9,7 @@ const client = createClient({
 
 interface Interaction {
   userId: string;
-  filmId: string;
+  filmId: number;
   name: string;
   genre: string[];
   interactionType: "click" | "impression" | "like";
@@ -17,8 +17,8 @@ interface Interaction {
 }
 
 // Insert a clickhouse interaction record for analytics
-export async function insertInteraction(interaction: Interaction) {
-    const { userId, filmId, name, genre, interactionType, rating } = interaction;
+export async function insertEvent(event: Interaction) {
+    const { userId, filmId, name, genre, interactionType, rating } = event;
     try {
     await client.insert({
       table: "user_interactions",
@@ -32,6 +32,7 @@ export async function insertInteraction(interaction: Interaction) {
           rating: rating || null,
         },
       ],
+      format: "JSONEachRow",
     });
     console.log("Interaction inserted successfully");
   } catch (error) {

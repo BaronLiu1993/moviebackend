@@ -54,7 +54,11 @@ type UpdateRatingType = {
   ratingId: UUID;
   newRating: number;
 };
-type DeleteRatingType = { supabaseClient: SupabaseClient; ratingId: UUID; userId: UUID };
+type DeleteRatingType = {
+  supabaseClient: SupabaseClient;
+  ratingId: UUID;
+  userId: UUID;
+};
 type EmbeddingRequestType = { filmId: number };
 type VectorType = Float32Array;
 type DotProductType = { u: VectorType; m: VectorType };
@@ -107,7 +111,7 @@ const generateFilmEmbedding = async ({ filmId }: EmbeddingRequestType) => {
     inputString += movieMetadata.genres.map((g: any) => g.name).join(" ");
   }
   if (Array.isArray(movieKeywords.keywords)) {
-    inputString += movieKeywords.keywords.map((k: any) => k.name).join(" ");  
+    inputString += movieKeywords.keywords.map((k: any) => k.name).join(" ");
   }
 
   const response = await OpenAIClient.embeddings.create({
@@ -121,13 +125,11 @@ const generateFilmEmbedding = async ({ filmId }: EmbeddingRequestType) => {
     throw new Error("Failed to generate film embedding");
   }
 
-  const { error: insertionError } = await supabaseAdmin
-    .from("Film")
-    .insert({
-      film_embedding: embedding,
-      title: movieMetadata.title,
-      release_year: movieMetadata.release_date,
-    });
+  const { error: insertionError } = await supabaseAdmin.from("Film").insert({
+    film_embedding: embedding,
+    title: movieMetadata.title,
+    release_year: movieMetadata.release_date,
+  });
 
   if (insertionError) {
     throw new Error("Failed to insert film embedding");
@@ -176,8 +178,11 @@ export const insertRating = async ({
     .select("profile_embedding")
     .eq("user_id", userId)
     .single();
-  const userEmbeddingRaw = userVector?.profile_embedding as number[] | undefined;
-  if (!userEmbeddingRaw || userVectorError) throw new Error("User embedding not found");
+  const userEmbeddingRaw = userVector?.profile_embedding as
+    | number[]
+    | undefined;
+  if (!userEmbeddingRaw || userVectorError)
+    throw new Error("User embedding not found");
 
   // ensure film embedding exists
   const exists = await checkFilmExists({ supabaseClient, filmId });
@@ -190,7 +195,8 @@ export const insertRating = async ({
     .eq("film_id", filmId)
     .single();
   const filmEmbeddingRaw = filmVector?.film_embedding as number[] | undefined;
-  if (!filmEmbeddingRaw || filmVectorError) throw new Error("Film embedding not found");
+  if (!filmEmbeddingRaw || filmVectorError)
+    throw new Error("Film embedding not found");
 
   const userEmbedding = new Float32Array(userEmbeddingRaw);
   const filmEmbedding = new Float32Array(filmEmbeddingRaw);
@@ -210,7 +216,8 @@ export const insertRating = async ({
   const updatedUser = new Float32Array(userEmbedding.length);
   for (let i = 0; i < userEmbedding.length; i++) {
     updatedUser[i] =
-      userEmbedding[i]! + learningRate * (error * filmEmbedding[i]! - lambda * userEmbedding[i]!);
+      userEmbedding[i]! +
+      learningRate * (error * filmEmbedding[i]! - lambda * userEmbedding[i]!);
   }
 
   const { data, error: updateError } = await supabaseClient
@@ -223,7 +230,11 @@ export const insertRating = async ({
 };
 
 // Remove Rating, shift back the user embedding accordingly
-export const deleteRating = async ({ ratingId, userId, supabaseClient }: DeleteRatingType) => {
+export const deleteRating = async ({
+  ratingId,
+  userId,
+  supabaseClient,
+}: DeleteRatingType) => {
   // Verify rating belongs to user
   const { data: rating, error: fetchError } = await supabaseClient
     .from("Ratings")
@@ -238,7 +249,7 @@ export const deleteRating = async ({ ratingId, userId, supabaseClient }: DeleteR
     .from("Ratings")
     .delete()
     .eq("rating_id", ratingId);
-  
+
   if (deleteError) throw new Error("Failed to delete rating");
 };
 
@@ -286,7 +297,9 @@ export const updateRating = async ({
     throw new Error("Embeddings not found");
   }
 
-  const userEmbedding = new Float32Array(userVector.profile_embedding as number[]);
+  const userEmbedding = new Float32Array(
+    userVector.profile_embedding as number[],
+  );
   const filmEmbedding = new Float32Array(filmVector.film_embedding as number[]);
 
   const prediction = computeDotProduct({ u: userEmbedding, m: filmEmbedding });
@@ -295,7 +308,8 @@ export const updateRating = async ({
   const updatedUser = new Float32Array(userEmbedding.length);
   for (let i = 0; i < userEmbedding.length; i++) {
     updatedUser[i] =
-      userEmbedding[i]! + learningRate * (error * filmEmbedding[i]! - lambda * userEmbedding[i]!);
+      userEmbedding[i]! +
+      learningRate * (error * filmEmbedding[i]! - lambda * userEmbedding[i]!);
   }
 
   const { error: embedError } = await supabaseClient
@@ -310,21 +324,21 @@ export const handleRating = async ({
   userId,
   filmId,
   name,
-  genre
+  genre,
 }: KafkaEvent) => {
   try {
-    await sendEventToKafka("recommendation-likes", {
+    await sendEventToKafka({
       userId,
       filmId,
       timestamp: new Date().toISOString(),
       type: "rating",
       name,
-      genre
+      genre,
     });
   } catch (err) {
     console.error("Failed to log recommendation like:", err);
   }
-}
+};
 
 export const handleClick = async ({
   userId,
@@ -333,19 +347,18 @@ export const handleClick = async ({
   genre,
 }: KafkaEvent) => {
   try {
-    await sendEventToKafka("recommendation-clicks", {
+    await sendEventToKafka({
       userId,
       filmId,
       timestamp: new Date().toISOString(),
       type: "click",
       name,
-      genre
+      genre,
     });
-    
   } catch (err) {
     console.error("Failed to log recommendation click:", err);
   }
-}
+};
 
 // Click and view for 5 seconds or more counts as an impression
 export const handleImpression = async ({
@@ -355,15 +368,15 @@ export const handleImpression = async ({
   genre,
 }: KafkaEvent) => {
   try {
-    await sendEventToKafka("recommendation-impressions", {
+    await sendEventToKafka({
       userId,
       filmId,
       timestamp: new Date().toISOString(),
       type: "impression",
       name,
-      genre
-    }); 
+      genre,
+    });
   } catch (err) {
     console.error("Failed to log recommendation impression:", err);
   }
-}
+};

@@ -1,4 +1,5 @@
 import { Kafka, Partitioners } from "kafkajs";
+import { insertEvent } from "../clickhouse/clickhouseService.js";
 
 const brokers = [process.env.KAFKA_BROKER_URL || "localhost:9092"];
 
@@ -29,16 +30,18 @@ export async function initProducer(retries = 6, delayMs = 2000) {
   throw new Error("Failed to connect Kafka producer after retries");
 }
 
-export async function sendEventToKafka(topic: string, event: object) {
+// Add topics to parameters after this
+export async function sendEventToKafka(event: object) {
   try {
-    await initProducer();
-    await producer.send({
-      topic,
-      messages: [{ value: JSON.stringify(event) }],
-    });
-    console.log(`[Kafka] Event sent to topic ${topic}:`, event);
+    //await initProducer();
+    //await producer.send({
+    //  topic,
+    //  messages: [{ value: JSON.stringify(event) }],
+    //});
+    await insertEvent(event as any);
+    console.log(`[Kafka] Event sent to topic:`, event);
   } catch (err) {
-    console.error(`[Kafka] Failed to send event to topic ${topic}:`, err);
+    console.error(`[Kafka] Failed to send event to topic:`, err);
   }
 }
 
