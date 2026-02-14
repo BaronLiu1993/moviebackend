@@ -10,6 +10,7 @@ import queryRouter from "./router/query/queryRouter.js"
 import rateRouter from "./router/rate/rateRouter.js"
 import friendRouter from './router/friend/friendRouter.js';
 import analyticsRouter from "./router/analytics/analyticsRouter.js"
+import { startClickHouseConsumer } from './service/kafka/configureKafkaConsumer.js';
 
 const app = express()
 
@@ -48,6 +49,12 @@ app.get("/health", (req, res) => {
 
 app.listen(8000, async () => {
     console.log(`Running on Server`)
+    try {
+      await startClickHouseConsumer();
+      console.log("[Server] ✅ ClickHouse consumer started");
+    } catch (err) {
+      console.error("[Server] ❌ ClickHouse consumer error:", err);
+    }
 })
 
 

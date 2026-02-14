@@ -14,7 +14,7 @@ import type { UUID } from "node:crypto";
 import OpenAI from "openai";
 import dotenv from "dotenv";
 import { createServerSideSupabaseClient } from "../supabase/configureSupabase.js";
-import { sendEventToKafka } from "../kafka/configureKafka.js";
+import { sendEventToKafkaRecommendations } from "../kafka/configureKafkaProducer.js";
 
 dotenv.config();
 
@@ -327,7 +327,7 @@ export const handleRating = async ({
   genre,
 }: KafkaEvent) => {
   try {
-    await sendEventToKafka({
+    await sendEventToKafkaRecommendations({
       userId,
       filmId,
       timestamp: new Date().toISOString(),
@@ -347,7 +347,7 @@ export const handleClick = async ({
   genre,
 }: KafkaEvent) => {
   try {
-    await sendEventToKafka({
+    await sendEventToKafkaRecommendations({
       userId,
       filmId,
       timestamp: new Date().toISOString(),
@@ -368,7 +368,7 @@ export const handleImpression = async ({
   genre,
 }: KafkaEvent) => {
   try {
-    await sendEventToKafka({
+    await sendEventToKafkaRecommendations({
       userId,
       filmId,
       timestamp: new Date().toISOString(),
