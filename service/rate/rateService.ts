@@ -320,6 +320,26 @@ export const updateRating = async ({
   if (embedError) throw new Error("Failed to update user embedding");
 };
 
+export const handleLike = async ({
+  userId,
+  filmId,
+  name,
+  genre,
+}: KafkaEvent) => {
+  try {
+    await sendEventToKafkaRecommendations({
+      userId,
+      filmId,
+      name,
+      genre,
+      timestamp: new Date().toISOString(),
+      interactionType: 'like',
+    });
+  } catch (err) {
+    console.error("Failed to log recommendation like:", err);
+  }
+};
+
 export const handleRating = async ({
   userId,
   filmId,
@@ -330,10 +350,10 @@ export const handleRating = async ({
     await sendEventToKafkaRecommendations({
       userId,
       filmId,
-      timestamp: new Date().toISOString(),
-      type: "rating",
       name,
       genre,
+      timestamp: new Date().toISOString(),
+      interactionType: 'rating',
     });
   } catch (err) {
     console.error("Failed to log recommendation like:", err);
@@ -350,10 +370,10 @@ export const handleClick = async ({
     await sendEventToKafkaRecommendations({
       userId,
       filmId,
-      timestamp: new Date().toISOString(),
-      type: "click",
       name,
       genre,
+      timestamp: new Date().toISOString(),
+      interactionType: "click",
     });
   } catch (err) {
     console.error("Failed to log recommendation click:", err);
@@ -371,10 +391,10 @@ export const handleImpression = async ({
     await sendEventToKafkaRecommendations({
       userId,
       filmId,
-      timestamp: new Date().toISOString(),
-      type: "impression",
       name,
       genre,
+      timestamp: new Date().toISOString(),
+      interactionType: "impression",
     });
   } catch (err) {
     console.error("Failed to log recommendation impression:", err);

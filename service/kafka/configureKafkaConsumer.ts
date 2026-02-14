@@ -33,7 +33,7 @@ export async function startClickHouseConsumer() {
           userId: payload.userId,
           filmId: Number(payload.filmId),
           name: payload.name,
-          genre: payload.genres || [],
+          genre: payload.genre || [],
           interactionType: payload.interactionType,
           rating: payload.rating,
         });
