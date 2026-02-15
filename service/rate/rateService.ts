@@ -144,7 +144,6 @@ export const selectRatings = async ({
 };
 
 // Fix this so that the insert rating has better vector calculations and chunking as well.
-
 export const insertRating = async ({
   supabaseClient,
   rating,
@@ -152,74 +151,14 @@ export const insertRating = async ({
   userId,
   filmId,
 }: InsertRatingType) => {
-  const normalizedRating = (rating - 3) / 2;
-  const confidence = confidenceMap[rating] ?? 0.5;
-
-  // insert rating
-
   const { error: insertError } = await supabaseClient.from("Ratings").insert({
     user_id: userId,
     rating,
     note,
     film_id: filmId,
   });
+  
   if (insertError) throw new Error("Failed to insert rating");
-
-  // fetch user embedding
-  const { data: userVector, error: userVectorError } = await supabaseClient
-    .from("User_Profiles")
-    .select("profile_embedding")
-    .eq("user_id", userId)
-    .single();
-  const userEmbeddingRaw = userVector?.profile_embedding as
-    | number[]
-    | undefined;
-  if (!userEmbeddingRaw || userVectorError)
-    throw new Error("User embedding not found");
-
-  // ensure film embedding exists
-  const exists = await checkFilmExists({ supabaseClient, filmId });
-  if (!exists) await generateFilmEmbedding({ filmId });
-
-  // fetch film embedding
-  const { data: filmVector, error: filmVectorError } = await supabaseClient
-    .from("Film")
-    .select("film_embedding")
-    .eq("film_id", filmId)
-    .single();
-  const filmEmbeddingRaw = filmVector?.film_embedding as number[] | undefined;
-  if (!filmEmbeddingRaw || filmVectorError)
-    throw new Error("Film embedding not found");
-
-  const userEmbedding = new Float32Array(userEmbeddingRaw);
-  const filmEmbedding = new Float32Array(filmEmbeddingRaw);
-
-  if (!userEmbedding || !filmEmbedding) {
-    throw new Error("Embeddings not found");
-  }
-
-  if (userEmbedding.length !== filmEmbedding.length) {
-    throw new Error("Embedding dimension mismatch");
-  }
-  // compute prediction
-  const prediction = computeDotProduct({ u: userEmbedding, m: filmEmbedding });
-  const error = confidence * (normalizedRating - prediction);
-
-  // update user embedding
-  const updatedUser = new Float32Array(userEmbedding.length);
-  for (let i = 0; i < userEmbedding.length; i++) {
-    updatedUser[i] =
-      userEmbedding[i]! +
-      learningRate * (error * filmEmbedding[i]! - lambda * userEmbedding[i]!);
-  }
-
-  const { data, error: updateError } = await supabaseClient
-    .from("User_Profiles")
-    .update({ profile_embedding: Array.from(updatedUser) })
-    .eq("user_id", userId);
-  if (updateError) throw new Error("Failed to update user embedding");
-  const rows = data as any[] | null | undefined;
-  if (!rows || rows.length === 0) throw new Error("No rating found to update");
 };
 
 // Remove Rating, shift back the user embedding accordingly
@@ -255,7 +194,7 @@ export const updateRating = async ({
   // Verify rating belongs to user
   const { data: rating, error: fetchError } = await supabaseClient
     .from("Ratings")
-    .select("*")
+    .select("user_id")
     .eq("rating_id", ratingId)
     .single();
 
@@ -269,46 +208,4 @@ export const updateRating = async ({
     .eq("rating_id", ratingId);
 
   if (updateError) throw new Error("Failed to update rating");
-
-  // Recalculate user embedding (same as insertRating)
-  const normalizedRating = (newRating - 3) / 2;
-  const confidence = confidenceMap[newRating] ?? 0.5;
-
-  const { data: userVector } = await supabaseClient
-    .from("User_Profiles")
-    .select("profile_embedding")
-    .eq("user_id", userId)
-    .single();
-
-  const { data: filmVector } = await supabaseClient
-    .from("Film")
-    .select("film_embedding")
-    .eq("film_id", rating.film_id)
-    .single();
-
-  if (!userVector?.profile_embedding || !filmVector?.film_embedding) {
-    throw new Error("Embeddings not found");
-  }
-
-  const userEmbedding = new Float32Array(
-    userVector.profile_embedding as number[],
-  );
-  const filmEmbedding = new Float32Array(filmVector.film_embedding as number[]);
-
-  const prediction = computeDotProduct({ u: userEmbedding, m: filmEmbedding });
-  const error = confidence * (normalizedRating - prediction);
-
-  const updatedUser = new Float32Array(userEmbedding.length);
-  for (let i = 0; i < userEmbedding.length; i++) {
-    updatedUser[i] =
-      userEmbedding[i]! +
-      learningRate * (error * filmEmbedding[i]! - lambda * userEmbedding[i]!);
-  }
-
-  const { error: embedError } = await supabaseClient
-    .from("User_Profiles")
-    .update({ profile_embedding: Array.from(updatedUser) })
-    .eq("user_id", userId);
-
-  if (embedError) throw new Error("Failed to update user embedding");
 };

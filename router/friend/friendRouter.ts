@@ -27,7 +27,6 @@ router.post("/send-request", verifyToken, async (req, res) => {
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
     
-    // Provide specific error responses based on validation
     if (errorMessage.includes("Cannot send friend request to yourself")) {
       return res.status(400).json({ message: errorMessage });
     } else if (errorMessage.includes("User not found")) {
@@ -101,7 +100,6 @@ router.get("/get-followers", verifyToken, async (req, res) => {
     const data = await getFollowers({ userId, supabaseClient });
     return res.status(200).json({ data });
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -123,7 +121,6 @@ router.get("/get-profile", verifyToken, async (req, res) => {
     });
     return res.status(200).json({ data });
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
