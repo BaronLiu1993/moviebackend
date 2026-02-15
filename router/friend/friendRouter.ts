@@ -83,7 +83,6 @@ router.get("/get-following", verifyToken, async (req, res) => {
     const data = await getFollowing({ userId, supabaseClient });
     return res.status(200).json({ data });
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

@@ -71,11 +71,11 @@ export const sendFriendRequest = async ({
   userId,
   friendId,
   supabaseClient,
-}: SendFriendRequest): Promise<void> => {
+}: SendFriendRequest): Promise<boolean> => {
   try {
     // Check if user is trying to add themselves
     if (userId === friendId) {
-      throw new Error("Cannot send friend request to yourself");
+      return false;
     }
 
     // Check if friendId user exists
@@ -86,7 +86,7 @@ export const sendFriendRequest = async ({
       .single();
 
     if (friendCheckError || !friendExists) {
-      throw new Error("User not found");
+      return false;
     }
 
     // Check if request already exists (pending or accepted)
@@ -98,11 +98,7 @@ export const sendFriendRequest = async ({
       .single();
 
     if (!existingError && existingRequest) {
-      if (existingRequest.status === "pending") {
-        throw new Error("Friend request already pending");
-      } else if (existingRequest.status === "accepted") {
-        throw new Error("Already friends with this user");
-      }
+      return false;
     }
 
     // Create the friend request
@@ -113,12 +109,12 @@ export const sendFriendRequest = async ({
     });
 
     if (error) {
-      throw new Error("Failed to send friend request");
+      return false;
     }
 
-    return;
+    return true;
   } catch (err) {
-    throw err;
+    return false;
   }
 };
 
@@ -127,7 +123,7 @@ export const acceptFriendRequest = async ({
   userId,
   requestId,
   supabaseClient,
-}: FriendActionRequest): Promise<void> => {
+}: FriendActionRequest): Promise<boolean> => {
   try {
     const { error } = await supabaseClient
       .from("Friends")
@@ -136,12 +132,12 @@ export const acceptFriendRequest = async ({
       .eq("friend_id", userId);
 
     if (error) {
-      throw new Error("Failed to accept friend request");
+      return false;
     }
 
-    return;
+    return true;
   } catch (err) {
-    throw err;
+    return false;
   }
 };
 
@@ -150,7 +146,7 @@ export const rejectFriendRequest = async ({
   userId,
   requestId,
   supabaseClient,
-}: FriendActionRequest): Promise<void> => {
+}: FriendActionRequest): Promise<boolean> => {
   try {
     const { error } = await supabaseClient
       .from("Friends")
@@ -159,12 +155,12 @@ export const rejectFriendRequest = async ({
       .eq("friend_id", userId);
 
     if (error) {
-      throw new Error("Failed to reject friend request");
+      return false;
     }
 
-    return;
+    return true;
   } catch (err) {
-    throw err;
+    return false;
   }
 };
 
@@ -277,7 +273,7 @@ export const enhanceFriendProfile = async ({
       throw new Error("Users are not friends");
     }
 
-    
+
     
    } catch (err) {
     throw err;
