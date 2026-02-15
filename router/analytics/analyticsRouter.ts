@@ -3,7 +3,7 @@ import {
   handleClick,
   handleImpression,
   handleLike,
-} from "../../service/rate/rateService.js";
+} from "../../service/analytics/analyticsService.js";
 
 const router = Router();
 

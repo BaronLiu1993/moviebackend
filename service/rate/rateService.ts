@@ -14,7 +14,6 @@ import type { UUID } from "node:crypto";
 import OpenAI from "openai";
 import dotenv from "dotenv";
 import { createServerSideSupabaseClient } from "../supabase/configureSupabase.js";
-import { sendEventToKafkaRecommendations } from "../kafka/configureKafkaProducer.js";
 
 dotenv.config();
 
@@ -62,12 +61,6 @@ type DeleteRatingType = {
 type EmbeddingRequestType = { filmId: number };
 type VectorType = Float32Array;
 type DotProductType = { u: VectorType; m: VectorType };
-type KafkaEvent = {
-  userId: UUID;
-  filmId: number;
-  name?: string;
-  genre?: string;
-};
 
 // helpers
 const computeDotProduct = ({ u, m }: DotProductType): number => {
@@ -318,85 +311,4 @@ export const updateRating = async ({
     .eq("user_id", userId);
 
   if (embedError) throw new Error("Failed to update user embedding");
-};
-
-export const handleLike = async ({
-  userId,
-  filmId,
-  name,
-  genre,
-}: KafkaEvent) => {
-  try {
-    await sendEventToKafkaRecommendations({
-      userId,
-      filmId,
-      name,
-      genre,
-      timestamp: new Date().toISOString(),
-      interactionType: 'like',
-    });
-  } catch (err) {
-    console.error("Failed to log recommendation like:", err);
-  }
-};
-
-export const handleRating = async ({
-  userId,
-  filmId,
-  name,
-  genre,
-}: KafkaEvent) => {
-  try {
-    await sendEventToKafkaRecommendations({
-      userId,
-      filmId,
-      name,
-      genre,
-      timestamp: new Date().toISOString(),
-      interactionType: 'rating',
-    });
-  } catch (err) {
-    console.error("Failed to log recommendation like:", err);
-  }
-};
-
-export const handleClick = async ({
-  userId,
-  filmId,
-  name,
-  genre,
-}: KafkaEvent) => {
-  try {
-    await sendEventToKafkaRecommendations({
-      userId,
-      filmId,
-      name,
-      genre,
-      timestamp: new Date().toISOString(),
-      interactionType: "click",
-    });
-  } catch (err) {
-    console.error("Failed to log recommendation click:", err);
-  }
-};
-
-// Click and view for 5 seconds or more counts as an impression
-export const handleImpression = async ({
-  userId,
-  filmId,
-  name,
-  genre,
-}: KafkaEvent) => {
-  try {
-    await sendEventToKafkaRecommendations({
-      userId,
-      filmId,
-      name,
-      genre,
-      timestamp: new Date().toISOString(),
-      interactionType: "impression",
-    });
-  } catch (err) {
-    console.error("Failed to log recommendation impression:", err);
-  }
 };
