@@ -32,14 +32,13 @@ router.get("/initial-feed", async (req, res) => {
   //const userId = req.user?.sub as UUID;
   const supabaseClient = createServerSideSupabaseClient();
   const userId = req.query.userId as UUID;
-  const offset = parseInt(req.query.offset as string) || 0;
   
   if (!supabaseClient || !userId) {
     return res.status(401).json({ message: "Missing Supabase or UserID" });
   }
   try {
-    const data = await getInitialFeed({ supabaseClient, userId, offset });
-    return res.status(200).json({ data });
+    const response = await getInitialFeed({ supabaseClient, userId });
+    return res.status(200).json({ data: response });
   } catch (err){
     console.log(err);
     return res.status(500).json({ message: "Internal Server Error" });

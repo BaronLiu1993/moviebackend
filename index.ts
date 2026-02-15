@@ -51,10 +51,8 @@ app.listen(8000, async () => {
     console.log(`Running on Server`)
     try {
       await startClickHouseConsumer();
-      console.log("[Server] ✅ ClickHouse consumer started");
     } catch (err) {
-      console.error("[Server] ❌ ClickHouse consumer error:", err);
-    }
+      console.error("Failed to start ClickHouse consumer:", err);}
 })
 
 

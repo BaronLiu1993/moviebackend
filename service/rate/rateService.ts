@@ -1,19 +1,14 @@
-/**
- * This module handles:
- * - Selecting, inserting, updating, and deleting user ratings
- * - Generating and storing film embeddings from TMDB
- * - Updating user profile embeddings based on new ratings (matrix factorization)
- * - Computing predictions using dot products between user and film embeddings
- *
+/*
  * It combines Supabase RPCs and tables with OpenAI embeddings
  * and TMDB metadata to manage personalized film recommendations.
- */
+*/
 
 import { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 import OpenAI from "openai";
 import dotenv from "dotenv";
 import { createServerSideSupabaseClient } from "../supabase/configureSupabase.js";
+import { handleRating } from "../analytics/analyticsService.js";
 
 dotenv.config();
 
@@ -26,17 +21,6 @@ const TMDB_API_KEY = process.env.TMDB_API_KEY!;
 const OpenAIClient = new OpenAI({ apiKey: OPENAI_KEY });
 const supabaseAdmin = createServerSideSupabaseClient();
 
-// Constants
-const learningRate = 0.01;
-const lambda = 0.01;
-const confidenceMap: Record<number, number> = {
-  1: 1.0,
-  2: 0.7,
-  3: 0.3,
-  4: 0.7,
-  5: 1.0,
-};
-
 // types
 type RatingType = { supabaseClient: SupabaseClient; filmId: number };
 type SelectRatingType = { supabaseClient: SupabaseClient; userId: UUID };
@@ -46,6 +30,8 @@ type InsertRatingType = {
   note: string;
   userId: UUID;
   filmId: number;
+  name: string;
+  genre: string[];
 };
 type UpdateRatingType = {
   supabaseClient: SupabaseClient;
@@ -59,16 +45,7 @@ type DeleteRatingType = {
   userId: UUID;
 };
 type EmbeddingRequestType = { filmId: number };
-type VectorType = Float32Array;
-type DotProductType = { u: VectorType; m: VectorType };
 
-// helpers
-const computeDotProduct = ({ u, m }: DotProductType): number => {
-  if (u.length !== m.length) throw new Error("Vector dimension mismatch");
-  let sum = 0;
-  for (let i = 0; i < u.length; i++) sum += u[i]! * m[i]!;
-  return sum;
-};
 
 const checkFilmExists = async ({
   supabaseClient,
@@ -148,6 +125,8 @@ export const insertRating = async ({
   supabaseClient,
   rating,
   note,
+  name, 
+  genre,
   userId,
   filmId,
 }: InsertRatingType) => {
@@ -157,8 +136,10 @@ export const insertRating = async ({
     note,
     film_id: filmId,
   });
+  await handleRating({ userId, filmId, rating, name, genre}); 
   
-  if (insertError) throw new Error("Failed to insert rating");
+  if (insertError) return false;
+  return true;
 };
 
 // Remove Rating, shift back the user embedding accordingly
@@ -182,7 +163,8 @@ export const deleteRating = async ({
     .delete()
     .eq("rating_id", ratingId);
 
-  if (deleteError) throw new Error("Failed to delete rating");
+  if (deleteError) return false;
+  return true;  
 };
 
 export const updateRating = async ({
@@ -207,5 +189,6 @@ export const updateRating = async ({
     .update({ rating: newRating })
     .eq("rating_id", ratingId);
 
-  if (updateError) throw new Error("Failed to update rating");
+  if (updateError) return false;
+  return true;
 };

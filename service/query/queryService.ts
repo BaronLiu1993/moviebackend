@@ -1,7 +1,7 @@
-/**
+/*
  * It acts as the film discovery and recommendation service layer,
  * combining Supabase RPCs with external TMDB data.
- */
+*/
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
@@ -14,8 +14,6 @@ const TMDB_API_KEY = process.env.TMDB_API_KEY!;
 type UserRequest = {
   supabaseClient: SupabaseClient;
   userId: UUID;
-  limit?: number;
-  offset?: number;
 };
 
 type BookmarkRequest = UserRequest & {
@@ -73,7 +71,6 @@ export const removeBookmark = async ({
 export const getInitialFeed = async ({
   supabaseClient,
   userId,
-  offset = 0,
 }: UserRequest) => {
   try {
     console.log(`[getInitialFeed] Fetching initial feed for user`);
@@ -82,7 +79,7 @@ export const getInitialFeed = async ({
       supabaseClient.rpc("get_recommended", {
         user_id: userId,
         limit_count: 100,
-        offset_count: offset,
+        offset_count: 0,
       }),
       getPopularDramas(),
       getAiringDramas()
@@ -90,17 +87,36 @@ export const getInitialFeed = async ({
 
     const { data, error } = recommendedResult;
 
+    console.log(popularData)
+
     if (error) {
-      console.error(`[getRecommendedFilms] RPC error for user ${userId}:`, error);
       throw new Error(`Failed to fetch recommended films: ${error.message}`);
     }
 
-    console.log(`[getRecommendedFilms] Successfully fetched ${data?.length || 0} recommendations`);
-    return { 
-      personalized: data, 
-      popular: popularData.results || [],
-      airing: airingData.results || []
-    };
+    
+    const standardizedPopular = (popularData.results || []).map((item: any) => ({
+      tmdb_id: item.id,
+      title: item.name,
+      release_year: item.first_air_date?.split('-')[0] || null,
+      tags: item.genre_ids || []
+    }));
+    
+    const standardizedAiring = (airingData.results || []).map((item: any) => ({
+      tmdb_id: item.id,
+      title: item.name,
+      release_year: item.first_air_date?.split('-')[0] || null,
+      tags: item.genre_ids || []
+    }));
+    
+    const result = [
+      ...(data || []),
+      ...standardizedPopular,
+      ...standardizedAiring
+    ];
+    
+    console.log(`[getInitialFeed] Total records: ${result.length} (personalized: ${data?.length || 0}, popular: ${standardizedPopular.length}, airing: ${standardizedAiring.length})`);
+    
+    return result;
   } catch (err) {
     console.error(`[getRecommendedFilms] Exception:`, err);
     throw err;
@@ -134,16 +150,14 @@ export const getFriendFilms = async ({
 
 // Fetches currently airing Korean dramas from TMDB
 export const getAiringDramas = async () => {
-  try {
-    console.log(`[getCurrentlyAiringKoreanDramas] Fetching currently airing Korean dramas`);
-    
+  try {    
     const today = new Date().toISOString().split("T")[0] || "";
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
     const startDate = threeMonthsAgo.toISOString().split("T")[0] || "";
     
     const params = new URLSearchParams({
-      with_origin_country: "KR,CN,JP",
+      with_origin_country: "KR",
       include_adult: "false",
       language: "en-US",
       page: "1",
@@ -180,7 +194,7 @@ export const getPopularDramas = async () => {
     console.log(`[getPopularKoreanDramas] Fetching all-time popular Korean dramas`);
     
     const params = new URLSearchParams({
-      with_origin_country: "CN",
+      with_origin_country: "KR",
       sort_by: "popularity.desc",
       include_adult: "false",
       language: "en-US",
@@ -203,10 +217,8 @@ export const getPopularDramas = async () => {
     }
 
     const data = await response.json();
-    console.log(`[getPopularKoreanDramas] Successfully fetched ${data?.results?.length || 0} currently airing dramas`);
     return data;
   } catch (err) {
-    console.error(`[getPopularKoreanDramas] Exception:`, err);
     throw err;
   }
 };

@@ -19,7 +19,6 @@ export async function initProducer(retries = 6, delayMs = 2000) {
     try {
       await producer.connect();
       isConnected = true;
-      console.log("[Kafka] Producer connected");
       return;
     } catch (err) {
       console.warn(`[Kafka] Connect attempt ${i + 1} failed, retrying in ${delayMs}ms`);
@@ -37,7 +36,6 @@ export async function sendEventToKafkaRecommendations(event: object) {
       topic: "recommendation-events",
       messages: [{ value: JSON.stringify(event) }],
     });
-    console.log(`[Kafka] Event sent to topic:`, event);
   } catch (err) {
     console.error(`[Kafka] Failed to send event to topic:`, err);
   }

@@ -5,7 +5,7 @@ import type { UUID } from "node:crypto";
 const router = Router();
 
 router.post("/insert-ratings", async (req, res) => {
-  const { filmId, rating, note } = req.body
+  const { filmId, rating, note, name, genre } = req.body
   const userId = req.user?.sub as UUID
   
   if (!filmId || !userId || !rating || !req.supabaseClient) {
@@ -15,7 +15,7 @@ router.post("/insert-ratings", async (req, res) => {
   const supabaseClient = req.supabaseClient;
   
   try {
-    await insertRating({filmId, userId, rating, note: note || "", supabaseClient})
+    await insertRating({filmId, userId, rating, note: note || "", name: name, genre: genre, supabaseClient})
     return res.status(201).send();
   } catch (err) {
     console.log(err);

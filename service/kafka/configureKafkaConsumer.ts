@@ -38,7 +38,6 @@ export async function startClickHouseConsumer() {
           rating: payload.rating,
         });
 
-        console.log(`[ClickHouse Consumer] ✅ Processed ${payload.interactionType} for user ${payload.userId}`);
       } catch (err) {
         console.error("[ClickHouse Consumer] ❌ Error processing message:", err);
       }

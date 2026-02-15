@@ -4,8 +4,16 @@ import { sendEventToKafkaRecommendations } from "../kafka/configureKafkaProducer
 type KafkaEvent = {
   userId: UUID;
   filmId: number;
-  name?: string;
-  genre?: string;
+  name: string;
+  genre: string[];
+};
+
+type KafkaRatingEvent = {
+  userId: UUID;
+  filmId: number;
+  rating: number;
+  name: string;
+  genre: string[];
 };
 
 export const handleLike = async ({
@@ -21,7 +29,7 @@ export const handleLike = async ({
       name,
       genre,
       timestamp: new Date().toISOString(),
-      interactionType: 'like',
+      interactionType: "like",
     });
   } catch (err) {
     console.error("Failed to log recommendation like:", err);
@@ -33,15 +41,17 @@ export const handleRating = async ({
   filmId,
   name,
   genre,
-}: KafkaEvent) => {
+  rating,
+}: KafkaRatingEvent) => {
   try {
     await sendEventToKafkaRecommendations({
       userId,
       filmId,
       name,
       genre,
+      rating,
       timestamp: new Date().toISOString(),
-      interactionType: 'rating',
+      interactionType: "rating",
     });
   } catch (err) {
     console.error("Failed to log recommendation like:", err);
