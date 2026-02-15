@@ -1,2 +1,18 @@
 node_modules
 .env
+.venv
+
+# Python
+ranking/venv/
+ranking/__pycache__/
+ranking/**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# ML Models
+models/
+*.txt
+*.pkl
+*.joblib
