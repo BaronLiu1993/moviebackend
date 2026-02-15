@@ -1,8 +1,4 @@
 /**
- * This module handles:
- * - Google OAuth sign-in via Supabase
- * - User profile registration and embedding generation (OpenAI)
- *
  * It acts as the authentication service layer between the API routes,
  * Supabase (auth + database), and OpenAI.
  */

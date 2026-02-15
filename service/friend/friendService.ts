@@ -1,46 +1,44 @@
 /**
- * This module handles:
- * - Sending friend requests
- * - Accepting friend requests
- * - Declining friend requests
- * - Fetching followers and following relationships
- * - Secure profile access between accepted friends
- *
- * It acts as the friend management service layer.
+ * Friend management service layer.
+ * Handles friend requests (send/accept/reject), fetches followers/following, and friend profiles.
+ * Request operations return boolean: true if successful, false if invalid or failed.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 
-// types
-interface BaseFriendRequest {
+// Types
+type SendFriendRequest = {
   supabaseClient: SupabaseClient;
-}
-
-interface SendFriendRequest extends BaseFriendRequest {
   userId: UUID;
   friendId: UUID;
-}
+};
 
-interface FriendActionRequest extends BaseFriendRequest {
+type FriendActionRequest = {
+  supabaseClient: SupabaseClient;
   userId: UUID;
   requestId: UUID;
-}
+};
 
-interface GetFollowersRequest extends BaseFriendRequest {
+type GetFollowersRequest = {
+  supabaseClient: SupabaseClient;
   userId: UUID;
   page?: number;
   pageSize?: number;
-}
+};
 
-interface GetProfileRequest extends BaseFriendRequest {
+type GetProfileRequest = {
+  supabaseClient: SupabaseClient;
   userId: UUID;
   friendId: UUID;
-}
+};
 
-interface EnhanceProfileRequest extends GetProfileRequest {
+type EnhanceProfileRequest = {
+  supabaseClient: SupabaseClient;
+  userId: UUID;
+  friendId: UUID;
   filmId: number;
-}
+};
 
 // helpers
 // Checks whether two users have an accepted friendship relationship

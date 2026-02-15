@@ -43,6 +43,28 @@ export const bookmarkFilm = async ({
   }
 };
 
+export const removeBookmark = async ({
+  supabaseClient,
+  userId,
+  filmId,
+}: BookmarkRequest): Promise<void> => {
+  try {
+    const { error } = await supabaseClient
+      .from("bookmarks")
+      .delete()
+      .eq("user_id", userId)
+      .eq("film_id", filmId);
+      
+    if (error) {
+      console.error(`[unbookmarkFilm] Error unbookmarking film ${filmId} for user ${userId}:`, error);
+      throw new Error(`Failed to unbookmark film: ${error.message}`);
+    }
+  } catch (err) {
+    console.error(`[unbookmarkFilm] Exception:`, err);
+    throw err;
+  }
+};
+
 
 //Generate feed for users precompute -> cache -> fetch from cache (Redis) -> fallback to real-time computation if cache miss
 

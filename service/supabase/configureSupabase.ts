@@ -1,9 +1,4 @@
-/**
- * This module handles the creation of Supabase clients for different use cases:
- * - `createSupabaseClient` for authenticated requests from the client
- * - `createSignInSupabase` for OAuth sign-in flows
- * - `createServerSideSupabaseClient` for server-side operations using the service role
- *
+/*
  * It ensures environment variables are present and sets appropriate headers/auth options
  * depending on the type of client being created.
 */
