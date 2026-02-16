@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   kafka:
     image: apache/kafka:latest
@@ -7,23 +5,17 @@ services:
     ports:
       - "9092:9092"
     environment:
-      # KRaft settings
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-
-      # Listeners
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-
-      # Single-node dev-friendly settings
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     restart: unless-stopped
     healthcheck:
@@ -33,9 +25,9 @@ services:
       retries: 5
       start_period: 15s
 
-  # Redis
   redis:
     image: redis:7-alpine
+    container_name: redis
     ports:
       - "6379:6379"
     volumes:
@@ -48,15 +40,14 @@ services:
       timeout: 5s
       retries: 3
 
-  # ClickHouse
   clickhouse:
-    image: clickhouse/clickhouse-server:latest
+    image: clickhouse:latest
     container_name: clickhouse
     ports:
       - "8123:8123"
       - "9000:9000"
     environment:
-      CLICKHOUSE_DB: recommendations
+      CLICKHOUSE_DB: ${CLICKHOUSE_DATABASE:-db_test}
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-jiexuan}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-02NpT3Nc}
     volumes:
@@ -73,69 +64,39 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: app
     ports:
       - "8000:8000"
     environment:
-      - NODE_ENV=production
+      NODE_ENV: production
 
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
-      - SUPABASE_JWT_ALGORITHM=${SUPABASE_JWT_ALGORITHM}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      SUPABASE_JWT_ALGORITHM: ${SUPABASE_JWT_ALGORITHM}
 
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - TMDB_API_KEY=${TMDB_API_KEY}
-      - TMDB_API_BASE=${TMDB_API_BASE}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      TMDB_API_KEY: ${TMDB_API_KEY}
+      TMDB_API_BASE: ${TMDB_API_BASE}
 
-      - REDIS_URL=redis://redis:6379
-      - KAFKA_BROKER=kafka:9092
-      
-      - CLICKHOUSE_HOST=clickhouse
-      - CLICKHOUSE_PORT=8123
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-jiexuan}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-02NpT3Nc}
-      - CLICKHOUSE_DB=recommendations
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKER_URL: kafka:9092
 
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      CLICKHOUSE_URL: http://clickhouse:8123/
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-jiexuan}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-02NpT3Nc}
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE:-db_test}
+
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
     depends_on:
       kafka:
         condition: service_healthy
       redis:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
       clickhouse:
         condition: service_healthy
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-  ml-trainer:
-    build:
-      context: ./ranking
-      dockerfile: Dockerfile
-    container_name: ml-trainer
-    environment:
-      - CLICKHOUSE_HOST=clickhouse
-      - CLICKHOUSE_PORT=8123
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-jiexuan}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-02NpT3Nc}
-      - CLICKHOUSE_DB=recommendations
-    volumes:
-      - ./models:/app/models
-      - ./ranking:/app
-    depends_on:
-      clickhouse:
-        condition: service_healthy
-    restart: "no"
-    profiles:
-      - training
 
 volumes:
   redis_data:
-  pg_data:
   clickhouse_data:

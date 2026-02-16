@@ -160,7 +160,11 @@ export const registerUser = async ({
   const { error } = await supabaseClient
     .from("User_Profiles")
     .update({
+      interest_embedding: embedding,
       profile_embedding: embedding,
+      behavioral_embedding: null,
+      behavioral_weight_sum: 0,
+      rating_count: 0,
       completed_registration: true,
       genres: genres.split(",").map((genre: string) => genre.trim()),
       movies: movies ? movies.split(",").map((movie: string) => movie.trim()) : [],

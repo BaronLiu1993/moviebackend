@@ -12,4 +12,3 @@ dist/
 coverage/
 .typescript/
 .eslintcache
-package-lock.json

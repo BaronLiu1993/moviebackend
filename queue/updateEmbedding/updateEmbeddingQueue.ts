@@ -1,7 +1,16 @@
 import { Connection } from "../redis/redis.js";
 import { Queue } from "bullmq";
 
-const updateEmbeddingQueue = new Queue("embedding-sync", {
+export type EmbeddingJobData = {
+  userId: string;
+  accessToken: string;
+  operation: "insert" | "update" | "delete";
+  filmId: number;
+  rating: number;
+  oldRating?: number;
+};
+
+const updateEmbeddingQueue = new Queue<EmbeddingJobData>("embedding-sync", {
   connection: Connection,
   defaultJobOptions: {
     removeOnComplete: 100,

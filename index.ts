@@ -13,6 +13,9 @@ import analyticsRouter from "./router/analytics/analyticsRouter.js"
 import testRouter from "./router/test/testRouter.js"
 import { startClickHouseConsumer } from './service/kafka/configureKafkaConsumer.js';
 
+// Workers
+import './queue/updateEmbedding/updateEmbeddingWorker.js';
+
 const app = express()
 
 app.use(
