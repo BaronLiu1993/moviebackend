@@ -25,6 +25,7 @@ type UpdateRatingType = {
   userId: UUID;
   ratingId: UUID;
   newRating: number;
+  newNote: string;  
   accessToken: string;
 };
 type DeleteRatingType = {
@@ -69,7 +70,7 @@ export const insertRating = async ({
   await handleRating({ userId, filmId, rating, name, genre });
 
   if (insertError) throw new Error("Failed to insert rating");
-  await updateEmbeddingQueue.add('recompute', { userId });
+  await updateEmbeddingQueue.add('recompute', { userId, accessToken });
   return true;
 };
 
@@ -105,6 +106,7 @@ export const updateRating = async ({
   newRating,
   supabaseClient,
   accessToken,
+  newNote,
 }: UpdateRatingType) => {
   // Verify rating belongs to user
   const { data: rating, error: fetchError } = await supabaseClient
@@ -119,7 +121,7 @@ export const updateRating = async ({
   // Update the rating
   const { error: updateError } = await supabaseClient
     .from("Ratings")
-    .update({ rating: newRating })
+    .update({ rating: newRating, note: newNote })
     .eq("rating_id", ratingId);
 
   if (updateError) throw new Error("Failed to update rating");
