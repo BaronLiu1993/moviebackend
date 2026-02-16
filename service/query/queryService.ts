@@ -16,54 +16,6 @@ type UserRequest = {
   userId: UUID;
 };
 
-type BookmarkRequest = UserRequest & {
-  filmId: number;
-};
-
-export const bookmarkFilm = async ({
-  supabaseClient,
-  userId,
-  filmId,
-}: BookmarkRequest): Promise<void> => {
-  try {
-    const { error } = await supabaseClient.from("bookmarks").insert({
-      user_id: userId,
-      film_id: filmId,
-    });
-
-    if (error) {
-      console.error(`[bookmarkFilm] Error bookmarking film ${filmId} for user ${userId}:`, error);
-      throw new Error(`Failed to bookmark film: ${error.message}`);
-    }
-  } catch (err) {
-    console.error(`[bookmarkFilm] Exception:`, err);
-    throw err;
-  }
-};
-
-export const removeBookmark = async ({
-  supabaseClient,
-  userId,
-  filmId,
-}: BookmarkRequest): Promise<void> => {
-  try {
-    const { error } = await supabaseClient
-      .from("bookmarks")
-      .delete()
-      .eq("user_id", userId)
-      .eq("film_id", filmId);
-      
-    if (error) {
-      console.error(`[unbookmarkFilm] Error unbookmarking film ${filmId} for user ${userId}:`, error);
-      throw new Error(`Failed to unbookmark film: ${error.message}`);
-    }
-  } catch (err) {
-    console.error(`[unbookmarkFilm] Exception:`, err);
-    throw err;
-  }
-};
-
-
 //Generate feed for users precompute -> cache -> fetch from cache (Redis) -> fallback to real-time computation if cache miss
 
 
@@ -130,13 +82,11 @@ export const getFriendFilms = async ({
 }: UserRequest) => {
   try {
     console.log(`[getFriendFilms] Fetching friend films for user: ${userId}`);
-    
     const { data, error } = await supabaseClient.rpc("get_friends_films", {
       user_id: userId,
     });
 
     if (error) {
-      console.error(`[getFriendFilms] RPC error for user ${userId}:`, error);
       throw new Error(`Failed to fetch friend films: ${error.message}`);
     }
 

@@ -64,6 +64,7 @@ router.get("/friend-search", verifyToken, async (req, res) => {
   }
 });
 
+// TEST ENDPOINTS DO NOT USE IN PRODUCTION
 router.get("/airing", async (req, res) => {
   try {
     const data = await getAiringDramas();
