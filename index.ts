@@ -50,7 +50,7 @@ app.get("/health", (req, res) => {
 app.listen(8000, async () => {
     console.log(`Running on Server`)
     try {
-      await startClickHouseConsumer();
+      //await startClickHouseConsumer();
     } catch (err) {
       console.error("Failed to start ClickHouse consumer:", err);}
 })
