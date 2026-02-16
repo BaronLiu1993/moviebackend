@@ -9,11 +9,9 @@ const router = Router();
 
 router.post("/click", async (req, res) => {
   const { userId, filmId, name, genre } = req.body;
-
   if (!userId || !filmId || !name || !genre) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
-
   try {
     await handleClick({
       userId,
