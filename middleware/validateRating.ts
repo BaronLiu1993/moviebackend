@@ -1,6 +1,6 @@
 import { type Request, type Response, type NextFunction } from "express";
 
-export function validateInsertRating(req: Request, res: Response, next: NextFunction): void {
+export async function validateInsertRating(req: Request, res: Response, next: NextFunction): Promise<void> {
   const { filmId, rating, note, name, genre } = req.body;
   const userId = req.user?.sub;
 
@@ -34,10 +34,21 @@ export function validateInsertRating(req: Request, res: Response, next: NextFunc
     return;
   }
 
+  const { data, error } = await req.supabaseClient!
+    .from("Guanghai")
+    .select("tmdb_id")
+    .eq("tmdb_id", filmId)
+    .single();
+
+  if (error || !data) {
+    res.status(404).json({ message: "Film not found" });
+    return;
+  }
+
   next();
 }
 
-export function validateUpdateRating(req: Request, res: Response, next: NextFunction): void {
+export async function validateUpdateRating(req: Request, res: Response, next: NextFunction): Promise<void> {
   const { ratingId, newRating, newNote } = req.body;
   const userId = req.user?.sub;
 
@@ -58,6 +69,18 @@ export function validateUpdateRating(req: Request, res: Response, next: NextFunc
 
   if (typeof newNote !== "string" || newNote.length < 10 || newNote.length > 500) {
     res.status(400).json({ message: "Note must be between 10 and 500 characters" });
+    return;
+  }
+
+  const { data, error } = await req.supabaseClient!
+    .from("Ratings")
+    .select("rating_id")
+    .eq("rating_id", ratingId)
+    .eq("user_id", userId)
+    .single();
+
+  if (error || !data) {
+    res.status(404).json({ message: "Rating not found" });
     return;
   }
 
