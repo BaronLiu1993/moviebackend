@@ -7,7 +7,7 @@ import {
 } from "../../service/query/queryService.js";
 import { verifyToken } from "../../middleware/verifyToken.js";
 import type { UUID } from "node:crypto";
-import { createServerSideSupabaseClient } from "../../service/supabase/configureSupabase.js";
+import { selectRatings } from "../../service/rate/rateService.js";
 
 const router = Router();
 
@@ -20,6 +20,8 @@ router.get("/ratings", verifyToken, async (req, res) => {
     return res.status(401).json({ message: "Missing Supabase or UserID" });
   }
   try {
+    const data = await selectRatings({ supabaseClient, userId });
+    return res.status(200).json({ data });
   } catch (err) {
     console.log(err);
     return res.status(500).json({ message: "Internal Server Error" });
@@ -27,11 +29,9 @@ router.get("/ratings", verifyToken, async (req, res) => {
 });
 
 // Generate personalized feed for users based on their embeddings and interactions
-router.get("/initial-feed", async (req, res) => {
-  //const supabaseClient = req.supabaseClient;
-  //const userId = req.user?.sub as UUID;
-  const supabaseClient = createServerSideSupabaseClient();
-  const userId = req.query.userId as UUID;
+router.get("/initial-feed", verifyToken, async (req, res) => {
+  const supabaseClient = req.supabaseClient;
+  const userId = req.user?.sub as UUID;
   
   if (!supabaseClient || !userId) {
     return res.status(401).json({ message: "Missing Supabase or UserID" });

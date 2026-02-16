@@ -1,11 +1,12 @@
 import { Router } from "express";
 import {
-  generateInterestProfileVector,
   handleSignIn,
+  registerUser,
 } from "../../service/auth/authService.js";
 import { createSignInSupabase } from "../../service/supabase/configureSupabase.js";
 import { createSupabaseClient } from "../../service/supabase/configureSupabase.js";
-import { createServerSideSupabaseClient } from "../../service/supabase/configureSupabase.js";
+import { verifyToken } from "../../middleware/verifyToken.js";
+import type { UUID } from "node:crypto";
 
 const router = Router();
 
@@ -20,8 +21,10 @@ router.get("/signup-with-google", async (req, res) => {
   }
 });
 
+// abstract business logic into service layer then call it here (refactor this later)
 router.get("/oauth2callback", async (req, res) => {
   const code = req.query.code;
+  console.log(code)
   const supabase = createSignInSupabase();
 
   if (!code || typeof code !== "string") {
@@ -80,38 +83,20 @@ router.get("/oauth2callback", async (req, res) => {
   }
 });
 
-router.post("/register", async (req, res) => {
-  // Input String is the Top Genres That They Said + Favourite Shows Mixed Together
-  const { genres, movies, userId } = req.body;
-  const inputString = `${genres}, ${movies}`;
-  //const supabaseClient = req.supabaseClient;
-  //const userId = req.user?.sub as UUID;
-  const supabaseClient = createServerSideSupabaseClient();
-  if (!supabaseClient || !inputString || !userId) {
+router.post("/register", verifyToken, async (req, res) => {
+  const { genres, movies, moods, dislikedGenres, movieIds } = req.body;
+  const supabaseClient = req.supabaseClient;
+  const userId = req.user?.sub as UUID;
+
+  if (!supabaseClient || !userId || !genres) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
-  
-  const embedding = await generateInterestProfileVector({ inputString, supabaseClient, userId });
-  try {
-    // Profile embedding is the embedding for each individual person
-    const { error: insertionError } = await supabaseClient
-      .from("User_Profiles")
-      .update({
-        profile_embedding: embedding,
-        completed_registration: true,
-        genres: genres.split(",").map((genre: string) => genre.trim()),
-        movies: movies.split(",").map((movie: string) => movie.trim()),
-      })
-      .eq("user_id", userId);
-  
-    
-    if (insertionError) {
-      console.log(insertionError);
-      return res.status(400).json({ message: "Failed to Update" });
-    }
 
+  try {
+    await registerUser({ userId, genres, movies, moods, dislikedGenres, movieIds, supabaseClient });
     return res.status(204).send();
-  } catch {
+  } catch (err) {
+    console.log(err);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

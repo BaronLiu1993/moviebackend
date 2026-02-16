@@ -31,18 +31,24 @@ export const createSupabaseClient = ({ accessToken }: CreateSupabaseClientType) 
   });
 };
 
-// client specifically for OAuth sign-in flows (e.g., Google)
+// Singleton client for OAuth sign-in flows (e.g., Google)
+let signInSupabaseInstance: ReturnType<typeof createClient> | null = null;
+
 export const createSignInSupabase = () => {
   if (!SUPABASE_ANON_KEY || !SUPABASE_URL) {
     throw new Error("Missing Supabase keys or URL");
   }
 
-  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: {
-      detectSessionInUrl: true,
-      flowType: "pkce",
-    },
-  });
+  if (!signInSupabaseInstance) {
+    signInSupabaseInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        detectSessionInUrl: true,
+        flowType: "pkce",
+      },
+    });
+  }
+
+  return signInSupabaseInstance;
 };
 
 // server-side client using the service role for admin operations
