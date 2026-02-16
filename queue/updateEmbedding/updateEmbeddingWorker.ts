@@ -7,6 +7,14 @@ import type { EmbeddingJobData } from "./updateEmbeddingQueue.js";
 
 const PYTHON_SCRIPT = resolve(import.meta.dirname, "../../ranking/compute/incremental_embedding.py");
 
+// pgvector columns come back as strings like "[-0.018,0.041,...]" — parse them
+function parseVector(v: unknown): number[] | null {
+  if (v == null) return null;
+  if (Array.isArray(v)) return v;
+  if (typeof v === "string") return JSON.parse(v);
+  return null;
+}
+
 function runPython(input: object): Promise<object> {
   return new Promise((resolve, reject) => {
     const proc = execFile("python3", [PYTHON_SCRIPT], { timeout: 10_000 }, (err, stdout, stderr) => {
@@ -28,16 +36,16 @@ const worker = new Worker<EmbeddingJobData>(
     const { userId, accessToken, operation, filmId, rating, oldRating } = job.data;
     console.log(`[EmbeddingWorker] ${operation} for user ${userId}, film ${filmId}`);
 
-    const supabase = createSupabaseClient({ accessToken });
+    const supabaseClient = createSupabaseClient({ accessToken });
 
     // Fetch film embedding and user state in parallel
     const [filmResult, userResult] = await Promise.all([
-      supabase
+      supabaseClient  
         .from("Guanghai")
         .select("film_embedding")
         .eq("tmdb_id", filmId)
         .single(),
-      supabase
+      supabaseClient
         .from("User_Profiles")
         .select("interest_embedding, behavioral_embedding, behavioral_weight_sum, rating_count")
         .eq("user_id", userId)
@@ -60,9 +68,9 @@ const worker = new Worker<EmbeddingJobData>(
     // Delegate vector math to Python/numpy
     const result = await runPython({
       operation,
-      film_embedding: filmResult.data.film_embedding,
-      interest_embedding: userResult.data.interest_embedding,
-      behavioral_embedding: userResult.data.behavioral_embedding,
+      film_embedding: parseVector(filmResult.data.film_embedding),
+      interest_embedding: parseVector(userResult.data.interest_embedding),
+      behavioral_embedding: parseVector(userResult.data.behavioral_embedding),
       behavioral_weight_sum: userResult.data.behavioral_weight_sum ?? 0,
       rating_count: userResult.data.rating_count ?? 0,
       rating,
@@ -74,8 +82,7 @@ const worker = new Worker<EmbeddingJobData>(
       profile_embedding: number[];
     };
 
-    // Write results back
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseClient
       .from("User_Profiles")
       .update({
         behavioral_embedding: result.behavioral_embedding,

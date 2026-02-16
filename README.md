@@ -146,15 +146,3 @@ See [DOCKER.md](DOCKER.md) for full deployment details.
 | `npm run dev` | Dev server with hot reload (tsx watch) |
 | `npm run build` | Compile TypeScript |
 | `npm start` | Run compiled `dist/index.js` |
-
-## How It Works
-
-**Registration**: User signs in with Google OAuth → completes profile by picking genres and favorite movies → backend generates an OpenAI embedding from those preferences and stores it.
-
-**Recommendations**: The initial feed combines three sources — personalized results (embedding similarity against film database), popular dramas, and currently airing dramas from TMDB.
-
-**Ratings**: Users rate films 1-5 with optional notes. Rating events are also sent to Kafka for the analytics pipeline.
-
-**Analytics Pipeline**: User interactions (clicks, impressions, likes) flow through Kafka into ClickHouse for time-series storage. This data feeds the ML ranking pipeline in `ranking/`.
-
-**Rate Limiting**: 200 requests/minute globally via `express-rate-limit`.

@@ -8,6 +8,7 @@ const router = Router();
 
 router.post("/insert-ratings", verifyToken, validateInsertRating, async (req, res) => {
   const { filmId, rating, note, name, genre } = req.body;
+  console.log("Received insert rating request:", { filmId, rating, note, name, genre });
   const userId = req.user?.sub as UUID;
   const accessToken = req.token!;
   const supabaseClient = req.supabaseClient!;

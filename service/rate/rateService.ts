@@ -67,7 +67,7 @@ export const insertRating = async ({
     .eq("film_id", filmId)
     .single();
 
-  if (fetchError) {
+  if (fetchError && fetchError.code !== "PGRST116") {
     console.error(`[insertRating] Error checking existing rating for user ${userId} and film ${filmId}:`, fetchError);
     throw new Error("Failed to check existing rating");
   }
@@ -83,6 +83,7 @@ export const insertRating = async ({
     note,
     film_name: name,
     film_id: filmId,
+    genre
   });
   //await handleRating({ userId, filmId, rating, name, genre });
   console.log(insertError)
