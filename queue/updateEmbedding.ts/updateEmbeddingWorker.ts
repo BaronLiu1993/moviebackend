@@ -1,6 +1,6 @@
 import { Worker, Job } from "bullmq";
 import { Connection } from "../redis/redis.js";
-import { createServerSideSupabaseClient, createSupabaseClient } from "../../service/supabase/configureSupabase.js";
+import { createSupabaseClient } from "../../service/supabase/configureSupabase.js";
 
 const worker = new Worker(
   "embedding-sync",

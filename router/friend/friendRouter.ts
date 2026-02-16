@@ -25,16 +25,6 @@ router.post("/send-request", verifyToken, async (req, res) => {
     await sendFriendRequest({ userId, friendId, supabaseClient });
     return res.status(201).send();
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
-    
-    if (errorMessage.includes("Cannot send friend request to yourself")) {
-      return res.status(400).json({ message: errorMessage });
-    } else if (errorMessage.includes("User not found")) {
-      return res.status(404).json({ message: errorMessage });
-    } else if (errorMessage.includes("already") || errorMessage.includes("pending")) {
-      return res.status(409).json({ message: errorMessage });
-    }
-    
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

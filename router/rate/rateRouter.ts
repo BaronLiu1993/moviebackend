@@ -7,6 +7,7 @@ const router = Router();
 router.post("/insert-ratings", async (req, res) => {
   const { filmId, rating, note, name, genre } = req.body
   const userId = req.user?.sub as UUID
+  const accessToken = req.token
   
   if (!filmId || !userId || !rating || !req.supabaseClient) {
     return res.status(400).json({ message: "Missing Inputs"})
@@ -15,7 +16,10 @@ router.post("/insert-ratings", async (req, res) => {
   const supabaseClient = req.supabaseClient;
   
   try {
-    await insertRating({filmId, userId, rating, note: note || "", name: name, genre: genre, supabaseClient})
+    if (!accessToken) {
+      return res.status(401).json({ message: "Missing Access Token" });
+    }
+    await insertRating({filmId, userId, rating, note: note || "", name: name, genre: genre, supabaseClient, accessToken})
     return res.status(201).send();
   } catch (err) {
     console.log(err);
@@ -46,8 +50,12 @@ router.delete("/delete-ratings", async (req, res) => {
     return res.status(400).json({ message: "Missing Inputs"})
   }
   const supabaseClient = req.supabaseClient;
+  const accessToken = req.token;
   try {
-    await deleteRating({ratingId, userId, supabaseClient});
+    if (!accessToken) {
+      return res.status(401).json({ message: "Missing Access Token" });
+    }
+    await deleteRating({ratingId, userId, supabaseClient, accessToken});
     return res.status(204).send();
   } catch (err) {
     console.log(err);
@@ -64,8 +72,13 @@ router.put("/update-ratings", async (req, res) => {
   }
   
   const supabaseClient = req.supabaseClient;
+  const accessToken = req.token;
+
   try {
-    await updateRating({ratingId, userId, newRating, supabaseClient});
+    if (!accessToken) {
+      return res.status(401).json({ message: "Missing Access Token" });
+    }
+    await updateRating({ratingId, userId, newRating, supabaseClient, accessToken});
     return res.status(204).send();
   } catch (err) {
     console.log(err);
