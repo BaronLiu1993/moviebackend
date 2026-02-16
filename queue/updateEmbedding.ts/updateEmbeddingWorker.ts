@@ -7,7 +7,6 @@ const worker = new Worker(
   async (job: Job<{ userId: string, accessToken: string }>) => {
     const { userId, accessToken } = job.data;
     const supabase = createSupabaseClient({ accessToken });
-
     const { error } = await supabase.rpc("recompute_user_embedding", {
       p_user_id: userId,
     });
