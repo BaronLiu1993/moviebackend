@@ -15,8 +15,6 @@ export const fetchTmdbOverview = async (
   tmdbId: number
 ): Promise<TmdbDetail | null> => {
   const headers = { Authorization: `Bearer ${TMDB_API_KEY}` };
-
-  // Try TV first (primary content is Asian shows/K-dramas)
   try {
     const tvRes = await fetch(
       `${TMDB_API_BASE}/3/tv/${tmdbId}?language=en-US`,
@@ -33,8 +31,6 @@ export const fetchTmdbOverview = async (
   } catch {
     throw new Error(`Failed to fetch TMDB details for ID ${tmdbId}`);
   }
-
-  // Fallback to movie
   try {
     const movieRes = await fetch(
       `${TMDB_API_BASE}/3/movie/${tmdbId}?language=en-US`,

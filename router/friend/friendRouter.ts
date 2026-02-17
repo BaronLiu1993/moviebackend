@@ -6,6 +6,7 @@ import {
   getFollowers,
   getFollowing,
   getProfile,
+  getFriendRequests
 } from "../../service/friend/friendService.js";
 import type { UUID } from "node:crypto";
 import { verifyToken } from "../../middleware/verifyToken.js";
@@ -25,6 +26,7 @@ router.post("/send-request", verifyToken, async (req, res) => {
     await sendFriendRequest({ userId, friendId, supabaseClient });
     return res.status(201).send();
   } catch (err) {
+    console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -38,9 +40,10 @@ router.get("/get-friend-requests", verifyToken, async (req, res) => {
   }
   
   try {
-    //const data = await getFriendRequests({ userId, supabaseClient });
-    return res.status(200).json();
+    const data = await getFriendRequests({ userId, supabaseClient });
+    return res.status(200).json({ data });
   } catch (err) {
+    console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

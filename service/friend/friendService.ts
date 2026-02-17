@@ -63,6 +63,28 @@ const checkIsFriends = async (
   }
 };
 
+// Validates that a friend request exists and is pending, returns the request data
+const validatePendingRequest = async (
+  supabaseClient: SupabaseClient,
+  requestId: UUID,
+  userId: UUID
+) => {
+  const { data, error } = await supabaseClient
+    .from("Friends")
+    .select("status")
+    .eq("request_id", requestId)
+    .eq("friend_id", userId)
+    .single();
+
+  if (error || !data) {
+    throw new Error("Friend request not found");
+  }
+
+  if (data.status !== "pending") {
+    throw new Error("Only pending friend requests can be modified");
+  }
+};
+
 // service functions
 // Sends a friend request with a pending status
 export const sendFriendRequest = async ({
@@ -73,7 +95,7 @@ export const sendFriendRequest = async ({
   try {
     // Check if user is trying to add themselves
     if (userId === friendId) {
-      return false;
+      throw new Error("Cannot send friend request to yourself");
     }
 
     // Check if friendId user exists
@@ -84,7 +106,7 @@ export const sendFriendRequest = async ({
       .single();
 
     if (friendCheckError || !friendExists) {
-      return false;
+      throw new Error("User not found");
     }
 
     // Check if request already exists (pending or accepted)
@@ -96,7 +118,7 @@ export const sendFriendRequest = async ({
       .single();
 
     if (!existingError && existingRequest) {
-      return false;
+      throw new Error(`Friend request already ${existingRequest.status}`);
     }
 
     // Create the friend request
@@ -107,12 +129,14 @@ export const sendFriendRequest = async ({
     });
 
     if (error) {
-      return false;
+      console.log(error)
+      throw new Error("Failed to create friend request");
     }
 
     return true;
   } catch (err) {
-    return false;
+    console.log(err)
+    throw err;
   }
 };
 
@@ -121,21 +145,17 @@ export const acceptFriendRequest = async ({
   userId,
   requestId,
   supabaseClient,
-}: FriendActionRequest): Promise<boolean> => {
-  try {
-    const { error } = await supabaseClient
-      .from("Friends")
-      .update({ status: "accepted" })
-      .eq("request_id", requestId)
-      .eq("friend_id", userId);
+}: FriendActionRequest) => {
+  await validatePendingRequest(supabaseClient, requestId, userId);
 
-    if (error) {
-      return false;
-    }
+  const { error } = await supabaseClient
+    .from("Friends")
+    .update({ status: "accepted" })
+    .eq("request_id", requestId)
+    .eq("friend_id", userId);
 
-    return true;
-  } catch (err) {
-    return false;
+  if (error) {
+    throw new Error("Failed to accept friend request");
   }
 };
 
@@ -144,21 +164,17 @@ export const rejectFriendRequest = async ({
   userId,
   requestId,
   supabaseClient,
-}: FriendActionRequest): Promise<boolean> => {
-  try {
-    const { error } = await supabaseClient
-      .from("Friends")
-      .delete()
-      .eq("request_id", requestId)
-      .eq("friend_id", userId);
+}: FriendActionRequest) => {
+  await validatePendingRequest(supabaseClient, requestId, userId);
 
-    if (error) {
-      return false;
-    }
+  const { error } = await supabaseClient
+    .from("Friends")
+    .delete()
+    .eq("request_id", requestId)
+    .eq("friend_id", userId);
 
-    return true;
-  } catch (err) {
-    return false;
+  if (error) {
+    throw new Error("Failed to reject friend request");
   }
 };
 
@@ -182,6 +198,27 @@ export const getFollowers = async ({
 
     if (error) {
       throw new Error("Failed to fetch followers");
+    }
+
+    return data;
+  } catch (err) {
+    throw err;
+  }
+};
+
+export const getFriendRequests = async ({
+  userId,
+  supabaseClient,
+}: GetFollowersRequest) => {
+  try {
+    const { data, error } = await supabaseClient
+      .from("Friends")
+      .select("request_id, user_id, status, friend_id")
+      .eq("friend_id", userId)
+      .eq("status", "pending");
+
+    if (error) {
+      throw new Error("Failed to fetch friend requests");
     }
 
     return data;
@@ -271,9 +308,7 @@ export const enhanceFriendProfile = async ({
       throw new Error("Users are not friends");
     }
 
-
-    
-   } catch (err) {
+  } catch (err) {
     throw err;
   }
 };

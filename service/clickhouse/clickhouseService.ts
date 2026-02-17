@@ -18,7 +18,6 @@ interface Interaction {
 
 // Insert a clickhouse interaction record for analytics
 export async function insertEvent(event: Interaction) {
-    console.log("Inserting event into ClickHouse:", event);
     const { userId, filmId, name, genre, interactionType, rating } = event;
     try {
     await client.insert({
@@ -35,7 +34,6 @@ export async function insertEvent(event: Interaction) {
       ],
       format: "JSONEachRow",
     });
-    console.log("Interaction inserted successfully");
   } catch (error) {
     console.error("Error inserting interaction:", error);
   }
