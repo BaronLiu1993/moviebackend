@@ -133,32 +133,11 @@ CORS_ORIGIN=http://localhost:3000
 
 ### Docker
 
-Ensure you have a `.env` file configured (see above), then:
-
 ```bash
-docker compose up --build
+docker-compose up -d    # starts Kafka, Redis, ClickHouse, and the app
 ```
 
-This starts all services:
-
-| Service    | Port(s)      |
-|------------|--------------|
-| App        | 8000         |
-| Kafka      | 9092         |
-| Redis      | 6379         |
-| ClickHouse | 8123, 9000   |
-
-To stop:
-
-```bash
-docker compose down
-```
-
-To stop and remove persisted data (Redis, ClickHouse):
-
-```bash
-docker compose down -v
-```
+See [DOCKER.md](DOCKER.md) for full deployment details.
 
 ### Scripts
 
