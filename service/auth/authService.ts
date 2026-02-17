@@ -4,7 +4,7 @@
  */
 
 import { createSignInSupabase } from "../supabase/configureSupabase.js";
-import { fetchTmdbOverview } from "../tmdb/tmdbService.js";
+import { fetchTmdbOverview, fetchTmdbKeywords } from "../tmdb/tmdbService.js";
 import OpenAI from "openai";
 import dotenv from "dotenv";
 import type { UUID } from "node:crypto";
@@ -131,15 +131,24 @@ export const registerUser = async ({
 
   if (movieIds && movieIds.length > 0) {
     const capped = movieIds.slice(0, 10);
-    const results = await Promise.allSettled(
-      capped.map((id: number) => fetchTmdbOverview(id))
-    );
-    movieDescriptions = results.map((result, index) => {
+    const [overviewResults, keywordResults] = await Promise.all([
+      Promise.allSettled(capped.map((id: number) => fetchTmdbOverview(id))),
+      Promise.allSettled(capped.map((id: number) => fetchTmdbKeywords(id))),
+    ]);
+    movieDescriptions = overviewResults.map((result, index) => {
+      let desc: string;
       if (result.status === "fulfilled" && result.value) {
         const { title, overview } = result.value;
-        return overview ? `${title} - ${overview}` : movieTitles[index] || title;
+        desc = overview ? `${title} - ${overview}` : movieTitles[index] || title;
+      } else {
+        desc = movieTitles[index] || "Unknown";
       }
-      return movieTitles[index] || "Unknown";
+
+      const kwResult = keywordResults[index];
+      if (kwResult && kwResult.status === "fulfilled" && kwResult.value.length > 0) {
+        desc += ` (keywords: ${kwResult.value.join(", ")})`;
+      }
+      return desc;
     });
   } else {
     movieDescriptions = movieTitles;
