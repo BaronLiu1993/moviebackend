@@ -7,7 +7,6 @@ import type { EmbeddingJobData } from "./updateEmbeddingQueue.js";
 
 const PYTHON_SCRIPT = resolve(import.meta.dirname, "../../ranking/compute/incremental_embedding.py");
 
-// pgvector columns come back as strings like "[-0.018,0.041,...]" — parse them
 function parseVector(v: unknown): number[] | null {
   if (v == null) return null;
   if (Array.isArray(v)) return v;
