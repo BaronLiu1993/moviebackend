@@ -1,5 +1,5 @@
 # Stage 1: Build TypeScript
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -10,17 +10,20 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Production
-FROM node:18-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
-# Install Python and pip
-RUN apk add --no-cache python3 py3-pip dumb-init
+# Install Python, pip, and build tools for lightgbm
+RUN apk add --no-cache python3 py3-pip dumb-init gcc g++ musl-dev
 
 # Create venv and install Python dependencies
 RUN python3 -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
 RUN pip install numpy pandas lightgbm
+
+# Remove build tools to reduce image size
+RUN apk del gcc g++ musl-dev
 
 # Install Node.js production dependencies
 COPY package*.json ./
