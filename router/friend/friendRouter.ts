@@ -29,6 +29,22 @@ router.post("/send-request", verifyToken, async (req, res) => {
   }
 });
 
+router.get("/get-friend-requests", verifyToken, async (req, res) => {
+  const supabaseClient = req.supabaseClient;
+  const userId = req.user?.sub as UUID;
+
+  if (!userId || !supabaseClient) {
+    return res.status(400).json({ message: "Missing Inputs" });
+  }
+  
+  try {
+    //const data = await getFriendRequests({ userId, supabaseClient });
+    return res.status(200).json();
+  } catch (err) {
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 router.post("/accept-request", verifyToken, async (req, res) => {
   const { requestId } = req.body;
   const supabaseClient = req.supabaseClient;

@@ -30,7 +30,7 @@ export const getInitialFeed = async ({
     const [recommendedResult, popularData, airingData] = await Promise.all([
       supabaseClient.rpc("get_recommended", {
         user_id: userId,
-        limit_count: 100,
+        limit_count: 300,
         offset_count: 0,
       }),
       getPopularDramas(),
@@ -60,11 +60,17 @@ export const getInitialFeed = async ({
       tags: item.genre_ids || []
     }));
     
+    const seen = new Set<number>();
     const result = [
       ...(data || []),
       ...standardizedPopular,
       ...standardizedAiring
-    ];
+    ].filter((item: any) => {
+      if ((item.tags || []).includes(99)) return false;
+      if (seen.has(item.tmdb_id)) return false;
+      seen.add(item.tmdb_id);
+      return true;
+    });
     
     console.log(`[getInitialFeed] Total records: ${result.length} (personalized: ${data?.length || 0}, popular: ${standardizedPopular.length}, airing: ${standardizedAiring.length})`);
     
@@ -97,6 +103,29 @@ export const getFriendFilms = async ({
     throw err;
   }
 };
+
+export const getFriendsDramas = async ({
+  supabaseClient,
+  userId,
+}: UserRequest) => {
+  try {
+    console.log(`[getFriendsDramas] Fetching friend dramas for user: ${userId}`);
+    const { data, error } = await supabaseClient.rpc("get_friends_dramas", {
+        user_id: userId,
+      });
+
+    if (error) {
+      throw new Error(`Failed to fetch friend dramas: ${error.message}`);
+    }
+
+    console.log(`[getFriendsDramas] Successfully fetched ${data?.length || 0} friend dramas`);
+    return data;
+  } catch (err) {
+    console.error(`[getFriendsDramas] Exception:`, err);
+    throw err;
+  }
+}
+
 
 // Fetches currently airing Korean dramas from TMDB
 export const getAiringDramas = async () => {

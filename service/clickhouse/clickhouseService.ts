@@ -30,7 +30,7 @@ export async function insertEvent(event: Interaction) {
           film_name: name,
           film_genre: genre,
           interaction_type: interactionType,
-          rating: rating || null,
+          rating: rating,
         },
       ],
       format: "JSONEachRow",
