@@ -34,9 +34,7 @@ const worker = new Worker<EmbeddingJobData>(
   async (job: Job<EmbeddingJobData>) => {
     const { userId, accessToken, operation, filmId, rating, oldRating } = job.data;
     console.log(`[EmbeddingWorker] ${operation} for user ${userId}, film ${filmId}`);
-
     const supabaseClient = createSupabaseClient({ accessToken });
-
     // Fetch film embedding and user state in parallel
     const [filmResult, userResult] = await Promise.all([
       supabaseClient  

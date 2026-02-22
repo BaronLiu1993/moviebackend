@@ -28,18 +28,18 @@ export const getInitialFeed = async ({
     console.log(`[getInitialFeed] Fetching initial feed for user`);
     
     const [recommendedResult, popularData, airingData] = await Promise.all([
-      supabaseClient.rpc("get_recommended", {
-        user_id: userId,
+      supabaseClient.rpc("get_recommended_films", {
+        p_user_id: userId,
         limit_count: 300,
         offset_count: 0,
       }),
       getPopularDramas(),
-      getAiringDramas()
+      getAiringDramas() 
     ]);
 
     const { data, error } = recommendedResult;
-
-    console.log(popularData)
+    console.log(error)
+    //console.log(popularData)
 
     if (error) {
       throw new Error(`Failed to fetch recommended films: ${error.message}`);
@@ -50,14 +50,14 @@ export const getInitialFeed = async ({
       tmdb_id: item.id,
       title: item.name,
       release_year: item.first_air_date?.split('-')[0] || null,
-      tags: item.genre_ids || []
+      genre_ids: item.genre_ids || []
     }));
     
     const standardizedAiring = (airingData.results || []).map((item: any) => ({
       tmdb_id: item.id,
       title: item.name,
       release_year: item.first_air_date?.split('-')[0] || null,
-      tags: item.genre_ids || []
+      genre_ids: item.genre_ids || []
     }));
     
     const seen = new Set<number>();
@@ -85,46 +85,7 @@ export const getInitialFeed = async ({
 export const getFriendFilms = async ({
   supabaseClient,
   userId,
-}: UserRequest) => {
-  try {
-    console.log(`[getFriendFilms] Fetching friend films for user: ${userId}`);
-    const { data, error } = await supabaseClient.rpc("get_friends_films", {
-      user_id: userId,
-    });
-
-    if (error) {
-      throw new Error(`Failed to fetch friend films: ${error.message}`);
-    }
-
-    console.log(`[getFriendFilms] Successfully fetched ${data?.length || 0} friend films`);
-    return data;
-  } catch (err) {
-    console.error(`[getFriendFilms] Exception:`, err);
-    throw err;
-  }
-};
-
-export const getFriendsDramas = async ({
-  supabaseClient,
-  userId,
-}: UserRequest) => {
-  try {
-    console.log(`[getFriendsDramas] Fetching friend dramas for user: ${userId}`);
-    const { data, error } = await supabaseClient.rpc("get_friends_dramas", {
-        user_id: userId,
-      });
-
-    if (error) {
-      throw new Error(`Failed to fetch friend dramas: ${error.message}`);
-    }
-
-    console.log(`[getFriendsDramas] Successfully fetched ${data?.length || 0} friend dramas`);
-    return data;
-  } catch (err) {
-    console.error(`[getFriendsDramas] Exception:`, err);
-    throw err;
-  }
-}
+}: UserRequest) => {};
 
 
 // Fetches currently airing Korean dramas from TMDB
@@ -163,6 +124,30 @@ export const getAiringDramas = async () => {
     const data = await response.json();
     return data;
   } catch (err) {
+    throw err;
+  }
+};
+
+export const getCollaborativeFilters = async ({
+  supabaseClient,
+  userId,
+}: UserRequest) => {
+  try {
+    console.log(`[getCollaborativeFilters] Fetching collaborative filters for user: ${userId}`);
+    const { data, error } = await supabaseClient.rpc("get_collaborative_filters", {
+      user_id: userId,
+      limit_count: 20,
+      offset_count: 0,
+    });
+
+    if (error) {
+      throw new Error(`Failed to fetch collaborative filters: ${error.message}`);
+    }
+
+    console.log(`[getCollaborativeFilters] Successfully fetched ${data?.length || 0} collaborative filters`);
+    return data;
+  } catch (err) {
+    console.error(`[getCollaborativeFilters] Exception:`, err);
     throw err;
   }
 };
