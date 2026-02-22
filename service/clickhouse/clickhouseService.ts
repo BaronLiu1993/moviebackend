@@ -1,6 +1,6 @@
 import { createClient } from "@clickhouse/client";
 
-const client = createClient({   
+const client = createClient({
   url: process.env.CLICKHOUSE_URL || "http://localhost:8123",
   username: process.env.CLICKHOUSE_USER || "default",
   password: process.env.CLICKHOUSE_PASSWORD || "default",
@@ -18,8 +18,8 @@ interface Interaction {
 
 // Insert a clickhouse interaction record for analytics
 export async function insertEvent(event: Interaction) {
-    const { userId, filmId, name, genre, interactionType, rating } = event;
-    try {
+  const { userId, filmId, name, genre, interactionType, rating } = event;
+  try {
     await client.insert({
       table: "user_interactions",
       values: [

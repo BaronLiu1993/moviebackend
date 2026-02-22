@@ -12,6 +12,7 @@ router.post("/click", async (req, res) => {
   if (!userId || !filmId || !name || !genre) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
+  
   try {
     await handleClick({
       userId,

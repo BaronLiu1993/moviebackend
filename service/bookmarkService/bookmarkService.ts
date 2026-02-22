@@ -2,35 +2,46 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 
 // Types
-export type UserRequest = {
+type UserRequest = {
   supabaseClient: SupabaseClient;
   userId: UUID;
 };
 
-export type BookmarkRequest = UserRequest & {
+type BookmarkRequest = UserRequest & {
   filmId: number;
   title: string;
   genre: string[];
 };
 
-export const selectBookmarks = async ({
+type SelectBookmarkRequest = {
+  supabaseClient: SupabaseClient;
+  userId: UUID;
+  page: number;
+}
+
+export const selectBookmarkFilms = async ({
   supabaseClient,
   userId,
-}: UserRequest): Promise<any[]> => {
+  page = 0,
+}: SelectBookmarkRequest): Promise<any[]> => {
+  const LIMIT = 20;
   try {
+    const from = (page - 1) * LIMIT;
+    const to = from + LIMIT - 1;
     const { data, error } = await supabaseClient
       .from("Bookmarks")
       .select("*")
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .range(from, to);
 
     if (error) {
-      console.error(`[selectBookmarks] Error fetching bookmarks for user ${userId}:`, error);
-      throw new Error(`Failed to fetch bookmarks: ${error.message}`);
+      console.error(`[selectBookmarkFilms] Error fetching bookmarks for user ${userId}:`, error);
+      throw new Error(`Failed to fetch bookmarked films: ${error.message}`);
     }
 
     return data;
   } catch (err) {
-    console.error(`[selectBookmarks] Exception:`, err);
+    console.error(`[selectBookmarkFilms] Exception:`, err);
     throw err;
   }
 };

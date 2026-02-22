@@ -12,16 +12,22 @@ const TMDB_API_KEY = process.env.TMDB_API_KEY!;
 
 // MMR config
 const MMR_LAMBDA = 0.8; 
-const MMR_FINAL_COUNT = 50; 
+const MMR_FINAL_COUNT = 75; 
 
 type Film = {
   tmdb_id: number;
   title: string;
-  release_year: string | null;
+  release_year: string;
   film_id?: string;
   genre_ids: number[];
   similarity?: number;
 };
+
+type SelectFriendFilmsRequestType = { 
+  supabaseClient: SupabaseClient; 
+  userId: UUID;
+  offset?: number;
+}; 
 
 type UserRequest = {
   supabaseClient: SupabaseClient;
@@ -65,7 +71,6 @@ const applyMMR = (
       const candidate = remaining[i]!;
       const relevance = candidate.similarity ?? 0;
 
-      // Max similarity to any already-selected item (diversity penalty)
       const maxSimToSelected = Math.max(
         ...selected.map(s => genreSimilarity(candidate.genre_ids, s.genre_ids))
       );
@@ -156,7 +161,19 @@ export const getInitialFeed = async ({
 export const getFriendFilms = async ({
   supabaseClient,
   userId,
-}: UserRequest) => {};
+  offset = 0,
+}: SelectFriendFilmsRequestType) => {
+  try {
+    const { data, error } = await supabaseClient.rpc("get_friend_films", {
+      p_user_id: userId,
+      limit_count: 20,
+      offset_count: offset,
+    });
+  } catch {
+
+  }
+
+};
 
 
 // Fetches currently airing Korean dramas from TMDB
