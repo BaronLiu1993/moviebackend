@@ -24,7 +24,7 @@ export async function startClickHouseConsumer() {
     fromBeginning: false 
   });
 
-  console.log("[ClickHouse Consumer] ✅ Started, consuming from recommendation-events");
+  console.log("[ClickHouse Consumer] Started, consuming from recommendation-events");
   await consumer.run({
     eachMessage: async ({ topic, partition, message }) => {
       try {
@@ -39,7 +39,7 @@ export async function startClickHouseConsumer() {
         });
 
       } catch (err) {
-        console.error("[ClickHouse Consumer] ❌ Error processing message:", err);
+        console.error("[ClickHouse Consumer] Error processing message:", err);
       }
     },
   });

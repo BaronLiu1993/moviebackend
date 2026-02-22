@@ -4,7 +4,7 @@ import {
   getFriendFilms,
   getAiringDramas,
   getPopularDramas
-} from "../../service/query/queryService.js";
+} from "../../service/feed/feedService.js";
 import { verifyToken } from "../../middleware/verifyToken.js";
 import type { UUID } from "node:crypto";
 import { selectRatings } from "../../service/rate/rateService.js";
