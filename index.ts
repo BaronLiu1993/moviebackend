@@ -6,7 +6,7 @@ import cookieParser from "cookie-parser"
 import rateLimit from 'express-rate-limit';
 
 import authRouter from "./router/auth/authRouter.js"
-import queryRouter from "./router/query/queryRouter.js"
+import queryRouter from "./router/feed/feedRouter.js"
 import rateRouter from "./router/rate/rateRouter.js"
 import friendRouter from './router/friend/friendRouter.js';
 import analyticsRouter from "./router/analytics/analyticsRouter.js"

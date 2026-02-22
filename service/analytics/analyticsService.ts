@@ -16,6 +16,9 @@ type KafkaRatingEvent = {
   genre: string[];
 };
 
+// Like, Rating, 
+
+// Handlers for different types of user interactions with films, which will be sent to Kafka for analytics and recommendation purposes
 export const handleLike = async ({
   userId,
   filmId,
@@ -58,28 +61,8 @@ export const handleRating = async ({
   }
 };
 
-export const handleClick = async ({
-  userId,
-  filmId,
-  name,
-  genre,
-}: KafkaEvent) => {
-  try {
-    await sendEventToKafkaRecommendations({
-      userId,
-      filmId,
-      name,
-      genre,
-      timestamp: new Date().toISOString(),
-      interactionType: "click",
-    });
-  } catch (err) {
-    console.error("Failed to log recommendation click:", err);
-  }
-};
-
 // Click and view for 5 seconds or more counts as an impression
-export const handleImpression = async ({
+export const handleBookmark = async ({
   userId,
   filmId,
   name,
@@ -92,9 +75,9 @@ export const handleImpression = async ({
       name,
       genre,
       timestamp: new Date().toISOString(),
-      interactionType: "impression",
+      interactionType: "bookmark",
     });
   } catch (err) {
-    console.error("Failed to log recommendation impression:", err);
+    console.error("Failed to log recommendation bookmark:", err);
   }
 };

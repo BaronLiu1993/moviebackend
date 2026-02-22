@@ -1,24 +1,25 @@
 import { Router } from "express";
 import {
-  handleClick,
-  handleImpression,
+  handleRating,
+  handleBookmark,
   handleLike,
 } from "../../service/analytics/analyticsService.js";
 
 const router = Router();
 
-router.post("/click", async (req, res) => {
-  const { userId, filmId, name, genre } = req.body;
-  if (!userId || !filmId || !name || !genre) {
+router.post("/rating", async (req, res) => {
+  const { userId, filmId, name, genre, rating } = req.body;
+  if (!userId || !filmId || !name || !genre || !rating) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
-  
+
   try {
-    await handleClick({
+    await handleRating({
       userId,
       filmId,
       name,
       genre,
+      rating,
     });
     return res.status(200).send();
   } catch (err) {
@@ -27,14 +28,14 @@ router.post("/click", async (req, res) => {
   }
 });
 
-router.post("/impression", async (req, res) => {
+router.post("/bookmark", async (req, res) => {
   const { userId, filmId, name, genre } = req.body;
 
   if (!userId || !filmId || !name || !genre) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
   try {
-    await handleImpression({
+    await handleBookmark({
       userId,
       filmId,
       name,

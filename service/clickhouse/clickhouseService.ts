@@ -38,3 +38,50 @@ export async function insertEvent(event: Interaction) {
     console.error("Error inserting interaction:", error);
   }
 }
+
+// Aggregate and group data by the 
+export const getFilmFeatures = async () => {
+    const result = await client.query({
+      query: `
+        SELECT 
+          film_id,
+          film_name,
+          COUNT(*) AS total_interactions,
+          countIf(interaction_type = 'rating') AS impression_count,
+          countIf(interaction_type = 'like') AS like_count,
+          countIf(interaction_type = 'bookmark') AS interaction_count,
+          avgIf(rating, rating > 0) AS avg_rating,
+          arrayJoin(film_genre) AS genre_list
+        FROM user_interactions
+        GROUP BY film_id, film_name
+        `,
+        format: "JSONEachRow",
+    });
+    return result.json();
+}
+
+export const getUserFeatures = async () => {
+
+}
+
+// Generate features for ML model training by aggregating interactions
+export const aggregateInteractions = async () => {
+  try {
+    const result = await client.query({
+      query: `
+        SELECT 
+          user_id,
+          film_id,
+          COUNT(*) AS interaction_count
+        FROM user_interactions
+        GROUP BY user_id, film_id
+      `,
+      format: "JSONEachRow",
+    });
+
+    const data = await result.json();
+    return data;
+  } catch (error) {
+    console.error("Error aggregating interactions:", error);
+  }
+}
