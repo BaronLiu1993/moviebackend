@@ -10,10 +10,80 @@ import type { UUID } from "node:crypto";
 const TMDB_API_BASE = process.env.TMDB_API_BASE!;
 const TMDB_API_KEY = process.env.TMDB_API_KEY!;
 
+// MMR config
+const MMR_LAMBDA = 0.8; 
+const MMR_FINAL_COUNT = 50; 
+
+type Film = {
+  tmdb_id: number;
+  title: string;
+  release_year: string | null;
+  film_id?: string;
+  genre_ids: number[];
+  similarity?: number;
+};
 
 type UserRequest = {
   supabaseClient: SupabaseClient;
   userId: UUID;
+};
+
+/**
+ * MMR (Maximal Marginal Relevance) reranking for diversity.
+ * MMR = λ * relevance(item) - (1-λ) * max_similarity(item, selected_items)
+ * Uses genre overlap as diversity metric (Jaccard similarity).
+ */
+const applyMMR = (
+  candidates: Film[],
+  finalCount: number,
+  lambda: number = MMR_LAMBDA
+): Film[] => {
+  if (candidates.length <= finalCount) return candidates;
+
+  const selected: Film[] = [];
+  const remaining = [...candidates];
+
+  // Jaccard similarity between two genre arrays
+  const genreSimilarity = (a: number[], b: number[]): number => {
+    if (!a.length || !b.length) return 0;
+    const setA = new Set(a);
+    const setB = new Set(b);
+    const intersection = [...setA].filter(x => setB.has(x)).length;
+    const union = new Set([...a, ...b]).size;
+    return union > 0 ? intersection / union : 0;
+  };
+
+  const first = remaining.shift();
+  if (!first) return selected;
+  selected.push(first);
+
+  while (selected.length < finalCount && remaining.length > 0) {
+    let bestIdx = 0;
+    let bestScore = -Infinity;
+
+    for (let i = 0; i < remaining.length; i++) {
+      const candidate = remaining[i]!;
+      const relevance = candidate.similarity ?? 0;
+
+      // Max similarity to any already-selected item (diversity penalty)
+      const maxSimToSelected = Math.max(
+        ...selected.map(s => genreSimilarity(candidate.genre_ids, s.genre_ids))
+      );
+
+      // MMR score
+      const mmrScore = lambda * relevance - (1 - lambda) * maxSimToSelected;
+
+      if (mmrScore > bestScore) {
+        bestScore = mmrScore;
+        bestIdx = i;
+      }
+    }
+
+    const next = remaining.splice(bestIdx, 1)[0];
+    if (next) selected.push(next);
+  }
+
+  return selected;
 };
 
 //Generate feed for users precompute -> cache -> fetch from cache (Redis) -> fallback to real-time computation if cache miss
@@ -38,14 +108,12 @@ export const getInitialFeed = async ({
     ]);
 
     const { data, error } = recommendedResult;
-    console.log(error)
     //console.log(popularData)
 
     if (error) {
       throw new Error(`Failed to fetch recommended films: ${error.message}`);
     }
 
-    
     const standardizedPopular = (popularData.results || []).map((item: any) => ({
       tmdb_id: item.id,
       title: item.name,
@@ -61,7 +129,7 @@ export const getInitialFeed = async ({
     }));
     
     const seen = new Set<number>();
-    const result = [
+    const combined = [
       ...(data || []),
       ...standardizedPopular,
       ...standardizedAiring
@@ -72,11 +140,14 @@ export const getInitialFeed = async ({
       return true;
     });
     
-    console.log(`[getInitialFeed] Total records: ${result.length} (personalized: ${data?.length || 0}, popular: ${standardizedPopular.length}, airing: ${standardizedAiring.length})`);
+    // Apply MMR for diversity
+    const result = applyMMR(combined as Film[], MMR_FINAL_COUNT, MMR_LAMBDA);
+    
+    console.log(`[getInitialFeed] Total records: ${result.length} (before MMR: ${combined.length}, personalized: ${data?.length || 0}, popular: ${standardizedPopular.length}, airing: ${standardizedAiring.length})`);
     
     return result;
   } catch (err) {
-    console.error(`[getRecommendedFilms] Exception:`, err);
+    console.error(`[getInitialFeed] Exception:`, err);
     throw err;
   }
 };
