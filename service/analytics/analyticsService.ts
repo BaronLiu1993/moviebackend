@@ -1,5 +1,5 @@
 import type { UUID } from "node:crypto";
-import { sendEventToKafkaRecommendations } from "../kafka/configureKafkaProducer.js";
+import { sendInteractionEvent, sendImpressionEvent } from "../kafka/configureKafkaProducer.js";
 
 type KafkaEvent = {
   userId: UUID;
@@ -35,8 +35,7 @@ export const handleLike = async ({
   genre_ids,
 }: KafkaEvent) => {
   try {
-    await sendEventToKafkaRecommendations({
-      eventType: "interaction",
+    await sendInteractionEvent({
       userId,
       tmdbId,
       name,
@@ -57,8 +56,7 @@ export const handleRating = async ({
   rating,
 }: KafkaRatingEvent) => {
   try {
-    await sendEventToKafkaRecommendations({
-      eventType: "interaction",
+    await sendInteractionEvent({
       userId,
       tmdbId,
       name,
@@ -80,8 +78,7 @@ export const handleBookmark = async ({
   genre_ids,
 }: KafkaEvent) => {
   try {
-    await sendEventToKafkaRecommendations({
-      eventType: "interaction",
+    await sendInteractionEvent({
       userId,
       tmdbId,
       name,
@@ -103,8 +100,7 @@ export const handleImpression = async ({
   surface,
 }: KafkaImpressionEvent) => {
   try {
-    await sendEventToKafkaRecommendations({
-      eventType: "impression",
+    await sendImpressionEvent({
       userId,
       filmId,
       sessionId,

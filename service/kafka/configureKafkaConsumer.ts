@@ -8,64 +8,87 @@ const kafka = new Kafka({
   brokers 
 });
 
-const consumer = kafka.consumer({ 
-  groupId: "clickhouse-consumer-group" 
+const interactionConsumer = kafka.consumer({ 
+  groupId: "interaction-consumer-group" 
 });
 
-let running = false;
+const impressionConsumer = kafka.consumer({ 
+  groupId: "impression-consumer-group" 
+});
 
-export async function startClickHouseConsumer() {
-  if (running) return;
-  running = true;
+let interactionRunning = false;
+let impressionRunning = false;
 
-  await consumer.connect();
-  await consumer.subscribe({ 
-    topic: "recommendation-events", 
+export async function startInteractionConsumer() {
+  if (interactionRunning) return;
+  interactionRunning = true;
+
+  await interactionConsumer.connect();
+  await interactionConsumer.subscribe({ 
+    topic: "interaction-events", 
     fromBeginning: false 
   });
 
-  console.log("[ClickHouse Consumer] Started, consuming from recommendation-events");
-  await consumer.run({
+  console.log("[Interaction Consumer] Started, consuming from interaction-events");
+  await interactionConsumer.run({
     eachMessage: async ({ topic, partition, message }) => {
       try {
         const payload = JSON.parse(message.value?.toString() || "{}");
-
-        switch (payload.eventType) {
-          case "impression":
-            await insertImpressionEvent({
-              userId: payload.userId,
-              filmId: Number(payload.filmId),
-              sessionId: payload.sessionId,
-              genre_ids: payload.genre_ids || [],
-              position: payload.position,
-              surface: payload.surface,
-            });
-            break;
-
-          case "interaction":
-            await insertInteractionEvents({
-              userId: payload.userId,
-              tmdbId: Number(payload.tmdbId),
-              name: payload.name,
-              genre_ids: payload.genre_ids || [],
-              interactionType: payload.interactionType,
-              rating: payload.rating,
-            });
-            break;
-
-          default:
-            console.warn(`[ClickHouse Consumer] Unknown eventType: ${payload.eventType}`);
-        }
+        await insertInteractionEvents({
+          userId: payload.userId,
+          tmdbId: Number(payload.tmdbId),
+          name: payload.name,
+          genre_ids: payload.genre_ids || [],
+          interactionType: payload.interactionType,
+          rating: payload.rating,
+        });
       } catch (err) {
-        console.error("[ClickHouse Consumer] Error processing message:", err);
+        console.error("[Interaction Consumer] Error processing message:", err);
       }
     },
   });
 }
 
-export async function stopClickHouseConsumer() {
-  if (!running) return;
-  await consumer.disconnect();
-  running = false;
-  console.log("[ClickHouse Consumer] Stopped");
+export async function startImpressionConsumer() {
+  if (impressionRunning) return;
+  impressionRunning = true;
+
+  await impressionConsumer.connect();
+  await impressionConsumer.subscribe({ 
+    topic: "impression-events", 
+    fromBeginning: false 
+  });
+
+  console.log("[Impression Consumer] Started, consuming from impression-events");
+  await impressionConsumer.run({
+    eachMessage: async ({ topic, partition, message }) => {
+      try {
+        const payload = JSON.parse(message.value?.toString() || "{}");
+        await insertImpressionEvent({
+          userId: payload.userId,
+          filmId: Number(payload.filmId),
+          sessionId: payload.sessionId,
+          genre_ids: payload.genre_ids || [],
+          position: payload.position,
+          surface: payload.surface,
+        });
+      } catch (err) {
+        console.error("[Impression Consumer] Error processing message:", err);
+      }
+    },
+  });
+}
+
+export async function stopInteractionConsumer() {
+  if (!interactionRunning) return;
+  await interactionConsumer.disconnect();
+  interactionRunning = false;
+  console.log("[Interaction Consumer] Stopped");
+}
+
+export async function stopImpressionConsumer() {
+  if (!impressionRunning) return;
+  await impressionConsumer.disconnect();
+  impressionRunning = false;
+  console.log("[Impression Consumer] Stopped");
 }

@@ -28,16 +28,27 @@ export async function initProducer(retries = 6, delayMs = 2000) {
   throw new Error("Failed to connect Kafka producer after retries");
 }
 
-// Add topics to parameters after this
-export async function sendEventToKafkaRecommendations(event: object) {
+export async function sendInteractionEvent(event: object) {
   try {
     await initProducer();
     await producer.send({
-      topic: "recommendation-events",
+      topic: "interaction-events",
       messages: [{ value: JSON.stringify(event) }],
     });
   } catch (err) {
-    console.error(`[Kafka] Failed to send event to topic:`, err);
+    console.error("[Kafka] Failed to send interaction event:", err);
+  }
+}
+
+export async function sendImpressionEvent(event: object) {
+  try {
+    await initProducer();
+    await producer.send({
+      topic: "impression-events",
+      messages: [{ value: JSON.stringify(event) }],
+    });
+  } catch (err) {
+    console.error("[Kafka] Failed to send impression event:", err);
   }
 }
 
