@@ -7,14 +7,13 @@ import type { UUID } from "node:crypto";
 const router = Router();
 
 router.post("/insert-ratings", verifyToken, validateInsertRating, async (req, res) => {
-  const { filmId, rating, note, name, genre } = req.body;
-  console.log("Received insert rating request:", { filmId, rating, note, name, genre });
+  const { tmdbId, rating, note, name, genre_ids } = req.body;
+  console.log("Received insert rating request:", { tmdbId, rating, note, name, genre_ids });
   const userId = req.user?.sub as UUID;
   const accessToken = req.token!;
   const supabaseClient = req.supabaseClient!;
-
   try {
-    await insertRating({ filmId, userId, rating, note, name, genre, supabaseClient, accessToken });
+    await insertRating({ tmdbId, userId, rating, note, name, genre_ids, supabaseClient, accessToken });
     return res.status(201).send();
   } catch (err) {
     console.log(err);
@@ -24,6 +23,7 @@ router.post("/insert-ratings", verifyToken, validateInsertRating, async (req, re
 
 router.get("/select-ratings", verifyToken, async (req, res) => {
   const userId = req.user?.sub as UUID;
+  console.log("test")
   if (!userId || !req.supabaseClient) {
     return res.status(400).json({ message: "Missing Inputs" });
   }

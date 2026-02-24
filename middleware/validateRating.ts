@@ -1,10 +1,10 @@
 import { type Request, type Response, type NextFunction } from "express";
 
 export async function validateInsertRating(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const { filmId, rating, note, name, genre } = req.body;
+  const { tmdbId, rating, note, name, genre_ids } = req.body;
   const userId = req.user?.sub;
 
-  if (!filmId || !userId || !rating || !req.supabaseClient || !note || !name || !genre) {
+  if (!tmdbId || !userId || !rating || !req.supabaseClient || !note || !name || !genre_ids) {
     res.status(400).json({ message: "Missing Inputs" });
     return;
   }
@@ -24,20 +24,20 @@ export async function validateInsertRating(req: Request, res: Response, next: Ne
     return;
   }
 
-  if (typeof filmId !== "number" || !Number.isInteger(filmId)) {
-    res.status(400).json({ message: "filmId must be an integer" });
+  if (typeof tmdbId !== "number" || !Number.isInteger(tmdbId)) {
+    res.status(400).json({ message: "tmdb must be an integer" });
     return;
   }
 
-  if (!Array.isArray(genre) || genre.length === 0) {
-    res.status(400).json({ message: "genre must be a non-empty array" });
+  if (!Array.isArray(genre_ids)) {
+    res.status(400).json({ message: "genre_ids must be a non-empty array" });
     return;
   }
 
   const { data, error } = await req.supabaseClient!
     .from("Guanghai")
     .select("tmdb_id")
-    .eq("tmdb_id", filmId)
+    .eq("tmdb_id", tmdbId)
     .single();
 
   if (error || !data) {

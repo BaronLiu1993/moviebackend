@@ -5,7 +5,7 @@ export type EmbeddingJobData = {
   userId: string;
   accessToken: string;
   operation: "insert" | "update" | "delete";
-  filmId: number;
+  tmdbId: number;
   rating: number;
   oldRating?: number;
 };

@@ -8,17 +8,17 @@ import {
 const router = Router();
 
 router.post("/rating", async (req, res) => {
-  const { userId, filmId, name, genre, rating } = req.body;
-  if (!userId || !filmId || !name || !genre || !rating) {
+  const { userId, tmdbId, name, genre_ids, rating } = req.body;
+  if (!userId || !tmdbId || !name || !genre_ids || !rating) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
 
   try {
     await handleRating({
       userId,
-      filmId,
+      tmdbId,
       name,
-      genre,
+      genre_ids,
       rating,
     });
     return res.status(200).send();
@@ -29,18 +29,18 @@ router.post("/rating", async (req, res) => {
 });
 
 router.post("/bookmark", async (req, res) => {
-  const { userId, filmId, name, genre } = req.body;
-
-  if (!userId || !filmId || !name || !genre) {
+  const { userId, tmdbId, name, genre_ids } = req.body;
+  if (!userId || !tmdbId || !name || !genre_ids) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
   try {
     await handleBookmark({
       userId,
-      filmId,
+      tmdbId,
       name,
-      genre,
+      genre_ids,
     });
+
     return res.status(200).send();
   } catch (err) {
     console.log(err);
@@ -49,17 +49,17 @@ router.post("/bookmark", async (req, res) => {
 });
 
 router.post("/like", async (req, res) => {
-  const { userId, filmId, name, genre } = req.body;
+  const { userId, tmdbId, name, genre_ids } = req.body;
 
-  if (!userId || !filmId || !name || !genre) {
+  if (!userId || !tmdbId || !name || !genre_ids) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
   try {
     await handleLike({
       userId,
-      filmId,
+      tmdbId,
       name,
-      genre,
+      genre_ids,
     });
     return res.status(200).send();
   } catch (err) {
@@ -69,17 +69,17 @@ router.post("/like", async (req, res) => {
 });
 
 router.post("/friend-like", async (req, res) => {
-  const { userId, friendId, filmId, name, genre } = req.body;
+  const { userId, friendId, tmdbId, name, genre_ids } = req.body;
 
-  if (!userId || !friendId || !filmId || !name || !genre) {
+  if (!userId || !friendId || !tmdbId || !name || !genre_ids) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
   try {
     await handleLike({
       userId,
-      filmId,
+      tmdbId,
       name,
-      genre,
+      genre_ids,
     });
     return res.status(200).send();
   } catch (err) {

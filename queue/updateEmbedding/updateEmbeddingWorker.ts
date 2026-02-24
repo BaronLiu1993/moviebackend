@@ -32,15 +32,15 @@ function runPython(input: object): Promise<object> {
 const worker = new Worker<EmbeddingJobData>(
   "embedding-sync",
   async (job: Job<EmbeddingJobData>) => {
-    const { userId, accessToken, operation, filmId, rating, oldRating } = job.data;
-    console.log(`[EmbeddingWorker] ${operation} for user ${userId}, film ${filmId}`);
+    const { userId, accessToken, operation, tmdbId, rating, oldRating } = job.data;
+    console.log(`[EmbeddingWorker] ${operation} for user ${userId}, film ${tmdbId}`);
     const supabaseClient = createSupabaseClient({ accessToken });
     // Fetch film embedding and user state in parallel
     const [filmResult, userResult] = await Promise.all([
       supabaseClient  
         .from("Guanghai")
         .select("film_embedding")
-        .eq("tmdb_id", filmId)
+        .eq("tmdb_id", tmdbId)
         .single(),
       supabaseClient
         .from("User_Profiles")
@@ -50,7 +50,7 @@ const worker = new Worker<EmbeddingJobData>(
     ]);
 
     if (filmResult.error || !filmResult.data?.film_embedding) {
-      console.warn(`[EmbeddingWorker] Film ${filmId} not in Guanghai, skipping`);
+      console.warn(`[EmbeddingWorker] Film ${tmdbId} not in Guanghai, skipping`);
       return;
     }
 

@@ -1,4 +1,5 @@
 import { createClient } from "@clickhouse/client";
+import type { UUID } from "node:crypto";
 
 const client = createClient({
   url: process.env.CLICKHOUSE_URL || "http://localhost:8123",
@@ -9,34 +10,60 @@ const client = createClient({
 
 interface Interaction {
   userId: string;
-  filmId: number;
+  tmdbId: number;
   name: string;
-  genre: string[];
+  genre_ids: string[];
   interactionType: "click" | "impression" | "like";
   rating?: number;
 }
 
+interface Impression {
+    userId: UUID;
+    filmId: number;
+    sessionId: UUID;
+    genre_ids: string[];
+    position: number;
+    surface: string;
+}
+
 // Insert a clickhouse interaction record for analytics
-export async function insertEvent(event: Interaction) {
-  const { userId, filmId, name, genre, interactionType, rating } = event;
-  try {
-    await client.insert({
-      table: "user_interactions",
-      values: [
-        {
-          user_id: userId,
-          film_id: filmId,
-          film_name: name,
-          film_genre: genre,
-          interaction_type: interactionType,
-          rating: rating,
-        },
-      ],
-      format: "JSONEachRow",
-    });
-  } catch (error) {
-    console.error("Error inserting interaction:", error);
-  }
+export async function insertInteractionEvents(event: Interaction) {
+  const { userId, tmdbId, interactionType, rating } = event;
+
+  await client.insert({
+    table: "interactions",
+    values: [
+      {
+        interaction_id: crypto.randomUUID(),
+        user_id: userId,
+        film_id: tmdbId,
+        interaction_type: interactionType,
+        rating: rating ?? 0,
+        created_at: new Date().toISOString(),
+      },
+    ],
+    format: "JSONEachRow",
+  });
+}
+
+export async function insertImpressionEvent(event: Impression) {
+  const { userId, filmId, position, surface, sessionId } = event;
+
+  await client.insert({
+    table: "impressions",
+    values: [
+      {
+        impression_id: crypto.randomUUID(),
+        user_id: userId,
+        film_id: filmId,
+        session_id: sessionId,
+        position,
+        surface,
+        shown_at: new Date().toISOString(),
+      },
+    ],
+    format: "JSONEachRow",
+  });
 }
 
 // Aggregate and group data by the 
@@ -58,10 +85,6 @@ export const getFilmFeatures = async () => {
         format: "JSONEachRow",
     });
     return result.json();
-}
-
-export const getUserFeatures = async () => {
-
 }
 
 // Generate features for ML model training by aggregating interactions

@@ -1,5 +1,5 @@
 import { Kafka } from "kafkajs";
-import { insertEvent } from "../clickhouse/clickhouseService.js";
+import { insertImpressionEvent, insertInteractionEvents } from "../clickhouse/clickhouseService.js";
 
 const brokers = [process.env.KAFKA_BROKER_URL || "localhost:9092"];
 
@@ -29,15 +29,33 @@ export async function startClickHouseConsumer() {
     eachMessage: async ({ topic, partition, message }) => {
       try {
         const payload = JSON.parse(message.value?.toString() || "{}");
-        await insertEvent({
-          userId: payload.userId,
-          filmId: Number(payload.filmId),
-          name: payload.name,
-          genre: payload.genre || [],
-          interactionType: payload.interactionType,
-          rating: payload.rating,
-        });
 
+        switch (payload.eventType) {
+          case "impression":
+            await insertImpressionEvent({
+              userId: payload.userId,
+              filmId: Number(payload.filmId),
+              sessionId: payload.sessionId,
+              genre_ids: payload.genre_ids || [],
+              position: payload.position,
+              surface: payload.surface,
+            });
+            break;
+
+          case "interaction":
+            await insertInteractionEvents({
+              userId: payload.userId,
+              tmdbId: Number(payload.tmdbId),
+              name: payload.name,
+              genre_ids: payload.genre_ids || [],
+              interactionType: payload.interactionType,
+              rating: payload.rating,
+            });
+            break;
+
+          default:
+            console.warn(`[ClickHouse Consumer] Unknown eventType: ${payload.eventType}`);
+        }
       } catch (err) {
         console.error("[ClickHouse Consumer] Error processing message:", err);
       }

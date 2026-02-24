@@ -9,17 +9,22 @@ import { handleRating } from "../analytics/analyticsService.js";
 import updateEmbeddingQueue from "../../queue/updateEmbedding/updateEmbeddingQueue.js";
 
 // types
-type SelectRatingType = { supabaseClient: SupabaseClient; userId: UUID };
+type SelectRatingType = { 
+  supabaseClient: SupabaseClient; 
+  userId: UUID 
+};
+
 type InsertRatingType = {
   supabaseClient: SupabaseClient;
   rating: number;
   note: string;
   userId: UUID;
-  filmId: number;
+  tmdbId: number;
   name: string;
-  genre: string[];
+  genre_ids: string[];
   accessToken: string;
 };
+
 type UpdateRatingType = {
   supabaseClient: SupabaseClient;
   userId: UUID;
@@ -28,6 +33,7 @@ type UpdateRatingType = {
   newNote: string;  
   accessToken: string;
 };
+
 type DeleteRatingType = {
   supabaseClient: SupabaseClient;
   ratingId: UUID;
@@ -54,9 +60,9 @@ export const insertRating = async ({
   rating,
   note,
   name,
-  genre,
+  genre_ids,
   userId,
-  filmId,
+  tmdbId,
   accessToken,
 }: InsertRatingType) => {
 
@@ -64,11 +70,11 @@ export const insertRating = async ({
     .from("Ratings")
     .select("rating_id")
     .eq("user_id", userId)
-    .eq("film_id", filmId)
+    .eq("tmdb_id", tmdbId)
     .single();
 
   if (fetchError && fetchError.code !== "PGRST116") {
-    console.error(`[insertRating] Error checking existing rating for user ${userId} and film ${filmId}:`, fetchError);
+    console.error(`[insertRating] Error checking existing rating for user ${userId} and film ${tmdbId}:`, fetchError);
     throw new Error("Failed to check existing rating");
   }
 
@@ -79,16 +85,17 @@ export const insertRating = async ({
   // Add data base constraint the combination of user_id and film_id must be unique
   const { error: insertError } = await supabaseClient.from("Ratings").insert({
     user_id: userId,
-    rating,
-    note,
+    rating: rating,
+    note: note,
     film_name: name,
-    film_id: filmId,
-    genre
+    tmdb_id: tmdbId,
+    genre_ids: genre_ids
   });
-  //await handleRating({ userId, filmId, rating, name, genre });
+
+  await handleRating({ userId, tmdbId, rating, name, genre_ids });
   console.log(insertError)
   if (insertError) throw new Error("Failed to insert rating");
-  await updateEmbeddingQueue.add('recompute', { userId, accessToken, operation: 'insert', filmId, rating });
+  await updateEmbeddingQueue.add('recompute', { userId, accessToken, operation: 'insert', tmdbId, rating });
 };
 
 export const deleteRating = async ({
@@ -100,7 +107,7 @@ export const deleteRating = async ({
   // Verify rating belongs to user and fetch film_id + rating for incremental update
   const { data: ratingData, error: fetchError } = await supabaseClient
     .from("Ratings")
-    .select("user_id, film_id, rating")
+    .select("user_id, tmdb_id, rating")
     .eq("rating_id", ratingId)
     .single();
 
@@ -117,7 +124,7 @@ export const deleteRating = async ({
     userId,
     accessToken,
     operation: 'delete',
-    filmId: ratingData.film_id,
+    tmdbId: ratingData.tmdb_id,
     rating: ratingData.rating,
   });
 };
@@ -133,7 +140,7 @@ export const updateRating = async ({
   // Verify rating belongs to user and fetch film_id + old rating for incremental update
   const { data: ratingData, error: fetchError } = await supabaseClient
     .from("Ratings")
-    .select("user_id, film_id, rating")
+    .select("user_id, tmdb_id, rating")
     .eq("rating_id", ratingId)
     .single();
 
@@ -151,7 +158,7 @@ export const updateRating = async ({
     userId,
     accessToken,
     operation: 'update',
-    filmId: ratingData.film_id,
+    tmdbId: ratingData.tmdb_id,
     rating: newRating,
     oldRating: ratingData.rating,
   });
