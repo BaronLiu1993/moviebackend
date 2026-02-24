@@ -20,7 +20,7 @@ A TypeScript + Express.js backend for a Korean drama discovery and rating platfo
 index.ts                                # Express app entry, port 8000
 middleware/
   verifyToken.ts                        # JWT auth: extracts Bearer token, validates via Supabase, sets req.user/req.token/req.supabaseClient
-  validateRating.ts                     # Two validators: validateInsertRating (checks filmId exists in Guanghai table), validateUpdateRating (checks rating belongs to user)
+  validateRating.ts                     # Two validators: validateInsertRating (checks tmdbId exists in Guanghai table), validateUpdateRating (checks rating belongs to user)
 router/
   auth/authRouter.ts                    # GET /signup-with-google, GET /oauth2callback, POST /register
   query/queryRouter.ts                  # GET /initial-feed, GET /friend-search, GET /airing, GET /popular, GET /ratings
@@ -43,7 +43,7 @@ service/
 queue/
   redis/redis.ts                        # Redis connection with TLS support, exponential backoff retry
   updateEmbedding/
-    updateEmbeddingQueue.ts             # BullMQ queue "embedding-sync", job type EmbeddingJobData { userId, accessToken, operation, filmId, rating, oldRating? }
+    updateEmbeddingQueue.ts             # BullMQ queue "embedding-sync", job type EmbeddingJobData { userId, accessToken, operation, tmdbId, rating, oldRating? }
     updateEmbeddingWorker.ts            # Fetches film+user embeddings, spawns Python subprocess, updates User_Profiles
   training/
     trainingQueue.ts                    # BullMQ queue "training-sync" (placeholder)

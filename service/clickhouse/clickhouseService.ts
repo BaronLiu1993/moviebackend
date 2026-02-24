@@ -5,32 +5,29 @@ const client = createClient({
   url: process.env.CLICKHOUSE_URL || "http://localhost:8123",
   username: process.env.CLICKHOUSE_USER || "default",
   password: process.env.CLICKHOUSE_PASSWORD || "default",
-  database: process.env.CLICKHOUSE_DATABASE || "default",
+  database: "default",
 });
 
 interface Interaction {
   userId: string;
   tmdbId: number;
   name: string;
-  genre_ids: string[];
-  interactionType: "click" | "impression" | "like";
+  interactionType: "click" | "like" | "rating" | "bookmark";
   rating?: number;
 }
 
 interface Impression {
-    userId: UUID;
-    filmId: number;
-    sessionId: UUID;
-    genre_ids: string[];
-    position: number;
-    surface: string;
+  userId: string;
+  tmdbId: number;
+  sessionId: string;
+  position: number;
+  surface: string;
 }
 
 // Insert a clickhouse interaction record for analytics
 export async function insertInteractionEvents(event: Interaction) {
   const { userId, tmdbId, interactionType, rating } = event;
-
-  await client.insert({
+  const test = await client.insert({
     table: "interactions",
     values: [
       {
@@ -44,18 +41,19 @@ export async function insertInteractionEvents(event: Interaction) {
     ],
     format: "JSONEachRow",
   });
+  console.log(test)
 }
 
 export async function insertImpressionEvent(event: Impression) {
-  const { userId, filmId, position, surface, sessionId } = event;
+  const { userId, tmdbId, position, surface, sessionId } = event;
 
-  await client.insert({
+  const test =await client.insert({
     table: "impressions",
     values: [
       {
         impression_id: crypto.randomUUID(),
         user_id: userId,
-        film_id: filmId,
+        film_id: tmdbId,
         session_id: sessionId,
         position,
         surface,
@@ -64,12 +62,13 @@ export async function insertImpressionEvent(event: Impression) {
     ],
     format: "JSONEachRow",
   });
+  console.log(test)
 }
 
-// Aggregate and group data by the 
+// Aggregate and group data by the
 export const getFilmFeatures = async () => {
-    const result = await client.query({
-      query: `
+  const result = await client.query({
+    query: `
         SELECT 
           film_id,
           film_name,
@@ -79,13 +78,13 @@ export const getFilmFeatures = async () => {
           countIf(interaction_type = 'bookmark') AS interaction_count,
           avgIf(rating, rating > 0) AS avg_rating,
           arrayJoin(film_genre) AS genre_list
-        FROM user_interactions
+        FROM interactions
         GROUP BY film_id, film_name
         `,
-        format: "JSONEachRow",
-    });
-    return result.json();
-}
+    format: "JSONEachRow",
+  });
+  return result.json();
+};
 
 // Generate features for ML model training by aggregating interactions
 export const aggregateInteractions = async () => {
@@ -107,4 +106,4 @@ export const aggregateInteractions = async () => {
   } catch (error) {
     console.error("Error aggregating interactions:", error);
   }
-}
+};

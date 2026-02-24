@@ -37,7 +37,7 @@ type EnhanceProfileRequest = {
   supabaseClient: SupabaseClient;
   userId: UUID;
   friendId: UUID;
-  filmId: number;
+  tmdbId: number;
 };
 
 // helpers
@@ -298,7 +298,7 @@ export const getProfile = async ({
 export const enhanceFriendProfile = async ({
   userId,
   friendId,
-  filmId,
+  tmdbId,
   supabaseClient,
 }: EnhanceProfileRequest) => {
   try {

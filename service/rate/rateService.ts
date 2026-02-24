@@ -92,9 +92,10 @@ export const insertRating = async ({
     genre_ids: genre_ids
   });
 
-  await handleRating({ userId, tmdbId, rating, name, genre_ids });
   console.log(insertError)
   if (insertError) throw new Error("Failed to insert rating");
+  await handleRating({ userId, tmdbId, rating, name });
+  console.log("[rateService] handleRating called for", { userId, tmdbId, rating });
   await updateEmbeddingQueue.add('recompute', { userId, accessToken, operation: 'insert', tmdbId, rating });
 };
 

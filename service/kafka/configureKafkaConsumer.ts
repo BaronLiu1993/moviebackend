@@ -34,14 +34,15 @@ export async function startInteractionConsumer() {
     eachMessage: async ({ topic, partition, message }) => {
       try {
         const payload = JSON.parse(message.value?.toString() || "{}");
+        console.log("[Interaction Consumer] Received:", payload);
         await insertInteractionEvents({
           userId: payload.userId,
           tmdbId: Number(payload.tmdbId),
           name: payload.name,
-          genre_ids: payload.genre_ids || [],
           interactionType: payload.interactionType,
-          rating: payload.rating,
+          rating: payload.rating ? Number(payload.rating) : 0,
         });
+        console.log("[Interaction Consumer] Inserted into ClickHouse");
       } catch (err) {
         console.error("[Interaction Consumer] Error processing message:", err);
       }
@@ -64,14 +65,15 @@ export async function startImpressionConsumer() {
     eachMessage: async ({ topic, partition, message }) => {
       try {
         const payload = JSON.parse(message.value?.toString() || "{}");
+        console.log("[Impression Consumer] Received:", payload);
         await insertImpressionEvent({
           userId: payload.userId,
-          filmId: Number(payload.filmId),
+          tmdbId: Number(payload.tmdbId),
           sessionId: payload.sessionId,
-          genre_ids: payload.genre_ids || [],
-          position: payload.position,
+          position: Number(payload.position),
           surface: payload.surface,
         });
+        console.log("[Impression Consumer] Inserted into ClickHouse");
       } catch (err) {
         console.error("[Impression Consumer] Error processing message:", err);
       }

@@ -8,7 +8,7 @@ type UserRequest = {
 };
 
 type BookmarkRequest = UserRequest & {
-  filmId: number;
+  tmdbId: number;
   title: string;
   genre: string[];
 };
@@ -49,7 +49,7 @@ export const selectBookmarkFilms = async ({
 export const bookmarkFilm = async ({
   supabaseClient,
   userId,
-  filmId,
+  tmdbId,
   title,
   genre,
 }: BookmarkRequest): Promise<void> => {
@@ -58,13 +58,13 @@ export const bookmarkFilm = async ({
       .from("Bookmarks")
       .insert({
         user_id: userId,
-        film_id: filmId,
+        film_id: tmdbId,
         title: title,
         genre: genre,
       });
 
     if (error) {
-      console.error(`[bookmarkFilm] Error bookmarking film ${filmId} for user ${userId}:`, error);
+      console.error(`[bookmarkFilm] Error bookmarking film ${tmdbId} for user ${userId}:`, error);
       throw new Error(`Failed to bookmark film: ${error.message}`);
     }
   } catch (err) {
@@ -76,17 +76,17 @@ export const bookmarkFilm = async ({
 export const removeBookmark = async ({
   supabaseClient,
   userId,
-  filmId,
+  tmdbId,
 }: BookmarkRequest): Promise<void> => {
   try {
     const { error } = await supabaseClient
       .from("Bookmarks")
       .delete()
       .eq("user_id", String(userId))
-      .eq("film_id", filmId);
+      .eq("film_id", tmdbId);
 
     if (error) {
-      console.error(`[removeBookmark] Error removing bookmark ${filmId} for user ${userId}:`, error);
+      console.error(`[removeBookmark] Error removing bookmark ${tmdbId} for user ${userId}:`, error);
       throw new Error(`Failed to remove bookmark: ${error.message}`);
     }
   } catch (err) {

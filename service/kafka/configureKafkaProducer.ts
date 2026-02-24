@@ -30,11 +30,13 @@ export async function initProducer(retries = 6, delayMs = 2000) {
 
 export async function sendInteractionEvent(event: object) {
   try {
+    console.log("[Kafka Producer] Sending interaction event:", event);
     await initProducer();
     await producer.send({
       topic: "interaction-events",
       messages: [{ value: JSON.stringify(event) }],
     });
+    console.log("[Kafka Producer] Interaction event sent successfully");
   } catch (err) {
     console.error("[Kafka] Failed to send interaction event:", err);
   }

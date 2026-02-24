@@ -1,47 +1,31 @@
 import type { UUID } from "node:crypto";
 import { sendInteractionEvent, sendImpressionEvent } from "../kafka/configureKafkaProducer.js";
 
-type KafkaEvent = {
+interface ImpressionEvent {
   userId: UUID;
   tmdbId: number;
-  name: string;
-  genre_ids: string[];
-};
-
-type KafkaRatingEvent = {
-  userId: UUID;
-  tmdbId: number;
-  rating: number;
-  name: string;
-  genre_ids: string[];
-};
-
-type KafkaImpressionEvent = {
-  userId: UUID;
-  filmId: number;
   sessionId: UUID;
-  genre_ids: string[];
   position: number;
   surface: string;
-};
+}
 
-// Like, Rating, 
-
-// Handlers for different types of user interactions with films, which will be sent to Kafka for analytics and recommendation purposes
+// Single interaction handlers (used by individual routes)
 export const handleLike = async ({
   userId,
   tmdbId,
   name,
-  genre_ids,
-}: KafkaEvent) => {
+}: {
+  userId: UUID;
+  tmdbId: number;
+  name: string;
+}) => {
   try {
     await sendInteractionEvent({
       userId,
       tmdbId,
       name,
-      genre_ids,
-      timestamp: new Date().toISOString(),
       interactionType: "like",
+      timestamp: new Date().toISOString(),
     });
   } catch (err) {
     console.error("Failed to log recommendation like:", err);
@@ -52,64 +36,73 @@ export const handleRating = async ({
   userId,
   tmdbId,
   name,
-  genre_ids,
   rating,
-}: KafkaRatingEvent) => {
+}: {
+  userId: UUID;
+  tmdbId: number;
+  name: string;
+  rating: number;
+}) => {
   try {
     await sendInteractionEvent({
       userId,
       tmdbId,
       name,
-      genre_ids,
       rating,
-      timestamp: new Date().toISOString(),
       interactionType: "rating",
+      timestamp: new Date().toISOString(),
     });
   } catch (err) {
     console.error("Failed to log recommendation rating:", err);
   }
 };
 
-// Click and view for 5 seconds or more counts as an impression
 export const handleBookmark = async ({
   userId,
   tmdbId,
   name,
-  genre_ids,
-}: KafkaEvent) => {
+}: {
+  userId: UUID;
+  tmdbId: number;
+  name: string;
+}) => {
   try {
     await sendInteractionEvent({
       userId,
       tmdbId,
       name,
-      genre_ids,
-      timestamp: new Date().toISOString(),
       interactionType: "bookmark",
+      timestamp: new Date().toISOString(),
     });
   } catch (err) {
     console.error("Failed to log recommendation bookmark:", err);
   }
 };
 
-export const handleImpression = async ({
-  userId,
-  filmId,
-  sessionId,
-  genre_ids,
-  position,
-  surface,
-}: KafkaImpressionEvent) => {
+// Batch impression handler
+export const handleImpression = async (impressions: ImpressionEvent[]) => {
   try {
-    await sendImpressionEvent({
-      userId,
-      filmId,
-      sessionId,
-      genre_ids,
-      position,
-      surface,
-      timestamp: new Date().toISOString(),
-    });
+    const batchSize = 10;
+    for (let i = 0; i < impressions.length; i += batchSize) {
+      const batch = impressions.slice(i, i + batchSize);
+      await Promise.all(
+        batch.map(async (impression) => {
+          const { userId, tmdbId, sessionId, position, surface } = impression;
+          if (!userId || !tmdbId || !sessionId || !position || !surface) {
+            throw new Error("Invalid impression in batch");
+          }
+
+          await sendImpressionEvent({
+            userId,
+            tmdbId,
+            sessionId,
+            position,
+            surface,
+          });
+        })
+      );
+    }
   } catch (err) {
-    console.error("Failed to log recommendation impression:", err);
+    console.error("Failed to log impression event:", err);
   }
 };

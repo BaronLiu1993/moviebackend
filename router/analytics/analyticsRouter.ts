@@ -1,36 +1,16 @@
 import { Router } from "express";
 import {
-  handleRating,
   handleBookmark,
   handleLike,
+  handleImpression,
 } from "../../service/analytics/analyticsService.js";
+import { verifyToken } from "../../middleware/verifyToken.js";
 
 const router = Router();
 
-router.post("/rating", async (req, res) => {
-  const { userId, tmdbId, name, genre_ids, rating } = req.body;
-  if (!userId || !tmdbId || !name || !genre_ids || !rating) {
-    return res.status(400).json({ message: "Missing Inputs" });
-  }
-
-  try {
-    await handleRating({
-      userId,
-      tmdbId,
-      name,
-      genre_ids,
-      rating,
-    });
-    return res.status(200).send();
-  } catch (err) {
-    console.log(err);
-    return res.status(500).json({ message: "Internal Server Error" });
-  }
-});
-
 router.post("/bookmark", async (req, res) => {
-  const { userId, tmdbId, name, genre_ids } = req.body;
-  if (!userId || !tmdbId || !name || !genre_ids) {
+  const { userId, tmdbId, name } = req.body;
+  if (!userId || !tmdbId || !name) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
   try {
@@ -38,9 +18,7 @@ router.post("/bookmark", async (req, res) => {
       userId,
       tmdbId,
       name,
-      genre_ids,
     });
-
     return res.status(200).send();
   } catch (err) {
     console.log(err);
@@ -49,9 +27,9 @@ router.post("/bookmark", async (req, res) => {
 });
 
 router.post("/like", async (req, res) => {
-  const { userId, tmdbId, name, genre_ids } = req.body;
+  const { userId, tmdbId, name } = req.body;
 
-  if (!userId || !tmdbId || !name || !genre_ids) {
+  if (!userId || !tmdbId || !name) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
   try {
@@ -59,7 +37,6 @@ router.post("/like", async (req, res) => {
       userId,
       tmdbId,
       name,
-      genre_ids,
     });
     return res.status(200).send();
   } catch (err) {
@@ -68,24 +45,19 @@ router.post("/like", async (req, res) => {
   }
 });
 
-router.post("/friend-like", async (req, res) => {
-  const { userId, friendId, tmdbId, name, genre_ids } = req.body;
+router.post("/bulk-impressions", verifyToken, async(req, res) => {
+    const { impressions } = req.body;
+    if (!impressions || !Array.isArray(impressions) || impressions.length === 0) {
+        return res.status(400).json({ message: "Missing or Invalid Impressions" });
+    } // Validate the structure of each impression before insertions
 
-  if (!userId || !friendId || !tmdbId || !name || !genre_ids) {
-    return res.status(400).json({ message: "Missing Inputs" });
-  }
-  try {
-    await handleLike({
-      userId,
-      tmdbId,
-      name,
-      genre_ids,
-    });
-    return res.status(200).send();
-  } catch (err) {
-    console.log(err);
-    return res.status(500).json({ message: "Internal Server Error" });
-  }
-});
+    try {
+        await handleImpression(impressions);
+        return res.status(200).send();
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+})
 
 export default router;
