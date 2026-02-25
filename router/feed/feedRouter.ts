@@ -45,8 +45,6 @@ router.get("/initial-feed", verifyToken, async (req, res) => {
   }
 });
 
-
-
 // Begin Search By Taking Friend's Bookmarked Films (Friend's Film)
 router.get("/friend-search", verifyToken, async (req, res) => {
   const supabaseClient = req.supabaseClient;

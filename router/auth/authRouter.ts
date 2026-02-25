@@ -1,89 +1,48 @@
 import { Router } from "express";
 import {
-  handleSignIn,
   registerUser,
+  signUpUser,
+  loginUser,
 } from "../../service/auth/authService.js";
-import { createSignInSupabase } from "../../service/supabase/configureSupabase.js";
-import { createSupabaseClient } from "../../service/supabase/configureSupabase.js";
+
+import { createSignInSupabase, createSupabaseClient } from "../../service/supabase/configureSupabase.js";
 import { verifyToken } from "../../middleware/verifyToken.js";
 import type { UUID } from "node:crypto";
+import { registerRequestSchema } from "../../schemas/authSchema.js";
+import { validateZod } from "../../middleware/schemaValidation.js";
+
 
 const router = Router();
 
-router.get("/signup-with-google", async (req, res) => {
+router.post("/signup", async (req, res) => {
+  const { email, password, name } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ message: "Missing email or password" });
+  }
   try {
-    const callbackURL = await handleSignIn();
-    if (callbackURL) {
-      res.redirect(callbackURL);
-    }
-  } catch {
-    return res.status(500).json({ message: "Internal Server Error" });
+    const result = await signUpUser({ email, password, name });
+    return res.status(200).json(result);
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message || "Signup failed" });
   }
 });
 
-// abstract business logic into service layer then call it here (refactor this later)
-router.get("/oauth2callback", async (req, res) => {
-  const code = req.query.code;
-  console.log(code)
-  const supabase = createSignInSupabase();
-
-  if (!code || typeof code !== "string") {
-    return res.status(400).json({ message: "Missing or Invalid Code" });
+// Login with email/password — returns access token
+router.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ message: "Missing email or password" });
   }
-
   try {
-    const { data: tokenData, error: tokenDataError } =
-      await supabase.auth.exchangeCodeForSession(code);
-
-    if (tokenDataError || !tokenData?.session) {
-      console.log(tokenDataError);
-      return res
-        .status(400)
-        .json({ message: "Failed to exchange code for session" });
-    }
-
-    const { session } = tokenData;
-    const user = session.user;
-
-    const supabaseClient = createSupabaseClient({
-      accessToken: session.access_token,
-    });
-
-    const { error: userDoesNotExist } = await supabaseClient
-      .from("User_Profiles")
-      .select("user_id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (userDoesNotExist) {
-      const { error: tokenInsertionError } = await supabaseClient
-        .from("User_Profiles")
-        .insert({
-          user_id: user.id,
-          email: user.email,
-          name: user.user_metadata?.full_name,
-        });
-
-      if (tokenInsertionError) {
-        return res.status(400).json({ message: "Failed" });
-      }
-
-      return res.status(200).json({
-        accessToken: session.access_token,
-        refreshToken: session.refresh_token,
-      });
-    } else {
-      return res.status(200).json({
-        accessToken: session.access_token,
-        refreshToken: session.refresh_token,
-      });
-    }
-  } catch {
-    return res.status(500).json({ message: "Internal Server Error" });
+    const result = await loginUser({ email, password });
+    return res.status(200).json(result);
+  } catch (err: any) {
+    return res.status(401).json({ message: err.message || "Login failed" });
   }
 });
 
-router.post("/register", verifyToken, async (req, res) => {
+
+router.put("/register", verifyToken, validateZod(registerRequestSchema), async (req, res) => {
   const { genres, movies, moods, dislikedGenres, movieIds } = req.body;
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID;
@@ -96,7 +55,6 @@ router.post("/register", verifyToken, async (req, res) => {
     await registerUser({ userId, genres, movies, moods, dislikedGenres, movieIds, supabaseClient });
     return res.status(204).send();
   } catch (err) {
-    console.log(err);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

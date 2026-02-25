@@ -3,7 +3,7 @@
  * Supabase (auth + database), and OpenAI.
  */
 
-import { createSignInSupabase } from "../supabase/configureSupabase.js";
+import { createSignInSupabase, createSupabaseClient } from "../supabase/configureSupabase.js";
 import { fetchTmdbOverview, fetchTmdbKeywords } from "../tmdb/tmdbService.js";
 import OpenAI from "openai";
 import dotenv from "dotenv";
@@ -39,6 +39,53 @@ interface RegisterUserRequest {
   supabaseClient: SupabaseClient;
 }
 
+// Sign up user with email/password
+export const signUpUser = async ({ email, password, name }: { email: string; password: string; name?: string }) => {
+  const supabase = createSignInSupabase();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: name || "Test User" } },
+  });
+  if (error || !data.session) {
+    throw new Error(error?.message || "Signup failed — check if email confirmation is required in Supabase settings");
+  }
+  const { session, user } = data;
+  const supabaseClient = createSupabaseClient({ accessToken: session.access_token });
+  const { error: insertError } = await supabaseClient
+    .from("User_Profiles")
+    .insert({
+      user_id: user!.id,
+      email: user!.email,
+      name: name || user!.user_metadata?.full_name || "Test User",
+    });
+  if (insertError) {
+    throw new Error("User created but profile insert failed: " + insertError.message);
+  }
+  return {
+    accessToken: session.access_token,
+    refreshToken: session.refresh_token,
+    userId: user!.id,
+  };
+};
+
+// Login user with email/password
+export const loginUser = async ({ email, password }: { email: string; password: string }) => {
+  const supabase = createSignInSupabase();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+  if (error || !data.session) {
+    throw new Error(error?.message || "Login failed");
+  }
+  return {
+    accessToken: data.session.access_token,
+    refreshToken: data.session.refresh_token,
+    userId: data.user.id,
+  };
+};
+
 // helpers
 // Ensures a user can only complete profile registration once
 const checkRegistration = async (
@@ -57,30 +104,6 @@ const checkRegistration = async (
     }
 
     return data.completed_registration;
-  } catch (err) {
-    throw err;
-  }
-};
-
-// auth
-// Initiates Google OAuth sign-in and returns the redirect URL
-export const handleSignIn = async (): Promise<string> => {
-  try {
-    const supabase = createSignInSupabase();
-
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        scopes: SCOPES,
-        redirectTo: "http://localhost:8000/v1/api/auth/oauth2callback",
-      },
-    });
-
-    if (error || !data?.url) {
-      throw new Error("Google OAuth sign-in failed");
-    }
-
-    return data.url;
   } catch (err) {
     throw err;
   }
