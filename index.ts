@@ -10,7 +10,6 @@ import queryRouter from "./router/feed/feedRouter.js"
 import rateRouter from "./router/rate/rateRouter.js"
 import friendRouter from './router/friend/friendRouter.js';
 import analyticsRouter from "./router/analytics/analyticsRouter.js"
-import testRouter from "./router/test/testRouter.js"
 import { startInteractionConsumer, startImpressionConsumer } from './service/kafka/configureKafkaConsumer.js';
 
 // Workers
@@ -37,7 +36,6 @@ app.use("/v1/api/query", queryRouter)
 app.use("/v1/api/rate", rateRouter)
 app.use("/v1/api/friend", friendRouter)
 app.use("/v1/api/analytics", analyticsRouter)
-app.use("/v1/api/test", testRouter)
 
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000,  
