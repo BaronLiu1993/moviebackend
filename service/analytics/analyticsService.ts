@@ -1,107 +1,70 @@
 import type { UUID } from "node:crypto";
 import { insertInteractionEvents, insertImpressionEvent } from "../clickhouse/clickhouseService.js";
 
-interface ImpressionEvent {
+interface InteractionParams {
   userId: UUID;
   tmdbId: number;
-  sessionId: UUID;
-  position: number;
-  surface: string;
+  film_name?: string;
+  genre_ids?: number[];
 }
 
-// Single interaction handlers (used by individual routes)
 export const handleLike = async ({
   userId,
   tmdbId,
-  name,
-}: {
-  userId: UUID;
-  tmdbId: number;
-  name: string;
-}) => {
+  film_name,
+  genre_ids,
+}: InteractionParams) => {
   try {
     await insertInteractionEvents({
       userId,
       tmdbId,
-      name,
       interactionType: "like",
+      film_name,
+      genre_ids,
+      rating: 0
     });
   } catch (err) {
-    console.error("Failed to log recommendation like:", err);
+    console.error("Failed to log like:", err);
   }
 };
 
 export const handleRating = async ({
   userId,
   tmdbId,
-  name,
+  film_name,
+  genre_ids,
   rating,
-}: {
-  userId: UUID;
-  tmdbId: number;
-  name: string;
-  rating: number;
-}) => {
-    console.log(tmdbId)
-    
+}: InteractionParams & { rating: number }) => {
   try {
     await insertInteractionEvents({
       userId,
       tmdbId,
-      name,
       interactionType: "rating",
       rating,
+      film_name,
+      genre_ids,
     });
   } catch (err) {
-    console.error("Failed to log recommendation rating:", err);
+    console.error("Failed to log rating:", err);
   }
 };
 
 export const handleBookmark = async ({
   userId,
   tmdbId,
-  name,
-}: {
-  userId: UUID;
-  tmdbId: number;
-  name: string;
-}) => {
+  film_name,
+  genre_ids,
+}: InteractionParams) => {
   try {
     await insertInteractionEvents({
       userId,
       tmdbId,
-      name,
       interactionType: "bookmark",
+      film_name,
+      genre_ids,
+      rating: 0
     });
   } catch (err) {
-    console.error("Failed to log recommendation bookmark:", err);
-  }
-};
-
-// Batch impression handler
-export const handleImpression = async (impressions: ImpressionEvent[]) => {
-  try {
-    const batchSize = 10;
-    for (let i = 0; i < impressions.length; i += batchSize) {
-      const batch = impressions.slice(i, i + batchSize);
-      await Promise.all(
-        batch.map(async (impression) => {
-          const { userId, tmdbId, sessionId, position, surface } = impression;
-          if (!userId || !tmdbId || !sessionId || !position || !surface) {
-            throw new Error("Invalid impression in batch");
-          }
-
-          await insertImpressionEvent({
-            userId,
-            tmdbId,
-            sessionId,
-            position,
-            surface,
-          });
-        })
-      );
-    }
-  } catch (err) {
-    console.error("Failed to log impression event:", err);
+    console.error("Failed to log bookmark:", err);
   }
 };

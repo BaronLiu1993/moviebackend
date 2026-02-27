@@ -3,19 +3,25 @@ import * as z from "zod";
 export const bookmarkRequestSchema = z.object({
     userId: z.string().uuid(),
     tmdbId: z.number().int(),
-    name: z.string().min(1),
+    film_name: z.string().min(1),
+    genre_ids: z.array(z.number().int()).optional(),
 });
 
 export const likeRequestSchema = z.object({
     userId: z.string().uuid(),
     tmdbId: z.number().int(),
-    name: z.string().min(1),
+    film_name: z.string().min(1),
+    genre_ids: z.array(z.number().int()).optional(),
 });
 
 const impressionSchema = z.object({
     userId: z.string().uuid(),
     tmdbId: z.number().int(),
-    name: z.string().min(1),
+    sessionId: z.string().uuid(),
+    position: z.number().int(),
+    surface: z.string().min(1),
+    film_name: z.string().optional(),
+    genre_ids: z.array(z.number().int()).optional(),
 });
 
 export const bulkImpressionsRequestSchema = z.object({

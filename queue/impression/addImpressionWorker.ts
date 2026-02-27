@@ -10,8 +10,12 @@ const worker = new Worker("impression-sync", async (job) => {
   concurrency: 1,
 });
 
-worker.on("failed", (job, err) => {});
+worker.on("failed", (job, err) => {
+    console.error(`[ImpressionWorker] Job ${job?.id} failed:`, err.message);
+});
 
-worker.on("completed", (job) => {});
+worker.on("completed", (job) => {
+    console.log(`[ImpressionWorker] Job ${job?.id} completed`);
+});
 
 export default worker;

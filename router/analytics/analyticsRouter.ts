@@ -2,7 +2,6 @@ import { Router } from "express";
 import {
   handleBookmark,
   handleLike,
-  handleImpression,
 } from "../../service/analytics/analyticsService.js";
 import { verifyToken } from "../../middleware/verifyToken.js";
 import { validateZod } from "../../middleware/schemaValidation.js";
@@ -11,12 +10,13 @@ import { bookmarkRequestSchema, likeRequestSchema, bulkImpressionsRequestSchema 
 const router = Router();
 
 router.post("/bookmark", validateZod(bookmarkRequestSchema), async (req, res) => {
-  const { userId, tmdbId, name } = req.body;
+  const { userId, tmdbId, film_name, genre_ids } = req.body;
   try {
     await handleBookmark({
       userId,
       tmdbId,
-      name,
+      film_name,
+      genre_ids,
     });
     return res.status(200).send();
   } catch (err) {
@@ -26,12 +26,13 @@ router.post("/bookmark", validateZod(bookmarkRequestSchema), async (req, res) =>
 });
 
 router.post("/like", validateZod(likeRequestSchema), async (req, res) => {
-  const { userId, tmdbId, name } = req.body;
+  const { userId, tmdbId, film_name, genre_ids } = req.body;
   try {
     await handleLike({
       userId,
       tmdbId,
-      name,
+      film_name,
+      genre_ids,
     });
     return res.status(200).send();
   } catch (err) {

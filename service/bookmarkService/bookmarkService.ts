@@ -69,7 +69,7 @@ export const bookmarkFilm = async ({
       throw new Error(`Failed to bookmark film: ${error.message}`);
     }
 
-    await handleBookmark({ userId, tmdbId, name: title });
+    await handleBookmark({ userId, tmdbId, film_name: title });
   } catch (err) {
     console.error(`[bookmarkFilm] Exception:`, err);
     throw err;
