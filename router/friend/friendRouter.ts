@@ -10,17 +10,15 @@ import {
 } from "../../service/friend/friendService.js";
 import type { UUID } from "node:crypto";
 import { verifyToken } from "../../middleware/verifyToken.js";
+import { validateZod } from "../../middleware/schemaValidation.js";
+import { sendFriendRequestSchema, acceptFriendRequestSchema, declineFriendRequestSchema } from "../../schemas/friendSchema.js";
 
 const router = Router();
 
-router.post("/send-request", verifyToken, async (req, res) => {
+router.post("/send-request", verifyToken, validateZod(sendFriendRequestSchema), async (req, res) => {
   const { friendId } = req.body;
-  const supabaseClient = req.supabaseClient;
+  const supabaseClient = req.supabaseClient!;
   const userId = req.user?.sub as UUID;
-
-  if (!userId || !friendId || !supabaseClient) {
-    return res.status(400).json({ message: "Missing Inputs" });
-  }
 
   try {
     await sendFriendRequest({ userId, friendId, supabaseClient });
@@ -48,14 +46,10 @@ router.get("/get-friend-requests", verifyToken, async (req, res) => {
   }
 });
 
-router.post("/accept-request", verifyToken, async (req, res) => {
+router.post("/accept-request", verifyToken, validateZod(acceptFriendRequestSchema), async (req, res) => {
   const { requestId } = req.body;
-  const supabaseClient = req.supabaseClient;
+  const supabaseClient = req.supabaseClient!;
   const userId = req.user?.sub as UUID;
-
-  if (!requestId || !supabaseClient || !userId) {
-    return res.status(400).json({ message: "Missing Inputs" });
-  }
   try {
     await acceptFriendRequest({ userId, requestId, supabaseClient });
     return res.status(201).send();
@@ -64,14 +58,10 @@ router.post("/accept-request", verifyToken, async (req, res) => {
   }
 });
 
-router.post("/decline-request", verifyToken, async (req, res) => {
+router.post("/decline-request", verifyToken, validateZod(declineFriendRequestSchema), async (req, res) => {
   const { requestId } = req.body;
-  const supabaseClient = req.supabaseClient;
+  const supabaseClient = req.supabaseClient!;
   const userId = req.user?.sub as UUID;
-
-  if (!requestId || !supabaseClient || !userId) {
-    return res.status(400).json({ message: "Missing Inputs" });
-  }
 
   try {
     await rejectFriendRequest({ userId, requestId, supabaseClient });

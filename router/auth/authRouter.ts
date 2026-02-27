@@ -5,20 +5,16 @@ import {
   loginUser,
 } from "../../service/auth/authService.js";
 
-import { createSignInSupabase, createSupabaseClient } from "../../service/supabase/configureSupabase.js";
 import { verifyToken } from "../../middleware/verifyToken.js";
 import type { UUID } from "node:crypto";
-import { registerRequestSchema } from "../../schemas/authSchema.js";
+import { registerRequestSchema, signupRequestSchema, loginRequestSchema } from "../../schemas/authSchema.js";
 import { validateZod } from "../../middleware/schemaValidation.js";
 
 
 const router = Router();
 
-router.post("/signup", async (req, res) => {
+router.post("/signup", validateZod(signupRequestSchema), async (req, res) => {
   const { email, password, name } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ message: "Missing email or password" });
-  }
   try {
     const result = await signUpUser({ email, password, name });
     return res.status(200).json(result);
@@ -28,11 +24,8 @@ router.post("/signup", async (req, res) => {
 });
 
 // Login with email/password — returns access token
-router.post("/login", async (req, res) => {
+router.post("/login", validateZod(loginRequestSchema), async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ message: "Missing email or password" });
-  }
   try {
     const result = await loginUser({ email, password });
     return res.status(200).json(result);

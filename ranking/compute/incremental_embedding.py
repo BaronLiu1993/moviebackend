@@ -44,7 +44,6 @@ def blend(interest, behavioral, rating_count):
 
 def main():
     data = json.loads(sys.stdin.read())
-
     operation = data["operation"]
     film_emb = np.array(data["film_embedding"], dtype=np.float64)
     interest_emb = np.array(data["interest_embedding"], dtype=np.float64)

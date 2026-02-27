@@ -2,11 +2,13 @@ import { Router } from "express";
 import { verifyToken } from "../../middleware/verifyToken.js";
 import { deleteRating, insertRating, selectRatings, updateRating } from "../../service/rate/rateService.js";
 import { validateInsertRating, validateUpdateRating } from "../../middleware/validateRating.js";
+import { validateZod } from "../../middleware/schemaValidation.js";
+import { insertRatingRequestSchema, updateRatingRequestSchema, deleteRatingRequestSchema } from "../../schemas/rateSchema.js";
 import type { UUID } from "node:crypto";
 
 const router = Router();
 
-router.post("/insert-ratings", verifyToken, validateInsertRating, async (req, res) => {
+router.post("/insert-ratings", verifyToken, validateZod(insertRatingRequestSchema), validateInsertRating, async (req, res) => {
   const { tmdbId, rating, note, name, genre_ids } = req.body;
   console.log("Received insert rating request:", { tmdbId, rating, note, name, genre_ids });
   const userId = req.user?.sub as UUID;
@@ -37,19 +39,12 @@ router.get("/select-ratings", verifyToken, async (req, res) => {
   }
 });
 
-router.delete("/delete-ratings", async (req, res) => {
+router.delete("/delete-ratings", verifyToken, validateZod(deleteRatingRequestSchema), async (req, res) => {
   const userId = req.user?.sub as UUID;
   const { ratingId } = req.body;
-
-  if (!userId || !ratingId || !req.supabaseClient) {
-    return res.status(400).json({ message: "Missing Inputs" });
-  }
-  const supabaseClient = req.supabaseClient;
-  const accessToken = req.token;
+  const supabaseClient = req.supabaseClient!;
+  const accessToken = req.token!;
   try {
-    if (!accessToken) {
-      return res.status(401).json({ message: "Missing Access Token" });
-    }
     await deleteRating({ ratingId, userId, supabaseClient, accessToken });
     return res.status(204).send();
   } catch (err) {
@@ -57,7 +52,7 @@ router.delete("/delete-ratings", async (req, res) => {
   }
 });
 
-router.put("/update-ratings", validateUpdateRating, async (req, res) => {
+router.put("/update-ratings", verifyToken, validateZod(updateRatingRequestSchema), validateUpdateRating, async (req, res) => {
   const userId = req.user?.sub as UUID;
   const { ratingId, newRating, newNote } = req.body;
   const supabaseClient = req.supabaseClient!;

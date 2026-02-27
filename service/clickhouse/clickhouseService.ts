@@ -1,5 +1,4 @@
 import { createClient } from "@clickhouse/client";
-import type { UUID } from "node:crypto";
 
 const client = createClient({
   url: process.env.CLICKHOUSE_URL || "http://localhost:8123",
@@ -27,31 +26,29 @@ interface Impression {
 // Insert a clickhouse interaction record for analytics
 export async function insertInteractionEvents(event: Interaction) {
   const { userId, tmdbId, interactionType, rating } = event;
-  const test = await client.insert({
+  const response = await client.insert({
     table: "interactions",
     values: [
       {
-        interaction_id: crypto.randomUUID(),
         user_id: userId,
         film_id: tmdbId,
         interaction_type: interactionType,
-        rating: rating ?? 0,
+        rating: rating,
         created_at: new Date().toISOString(),
       },
     ],
     format: "JSONEachRow",
   });
-  console.log(test)
+  console.log(response)
 }
 
 export async function insertImpressionEvent(event: Impression) {
   const { userId, tmdbId, position, surface, sessionId } = event;
 
-  const test =await client.insert({
+  const test = await client.insert({
     table: "impressions",
     values: [
       {
-        impression_id: crypto.randomUUID(),
         user_id: userId,
         film_id: tmdbId,
         session_id: sessionId,

@@ -5,7 +5,7 @@ import { Connection } from "../redis/redis.js";
 const worker = new Worker(
   "training-sync",
   async () => {
-        
+    
   },
   { connection: Connection, concurrency: 1 }
 );
