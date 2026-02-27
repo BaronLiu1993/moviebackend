@@ -44,7 +44,6 @@ export async function validateInsertRating(req: Request, res: Response, next: Ne
     res.status(404).json({ message: "Film not found" });
     return;
   }
-
   next();
 }
 

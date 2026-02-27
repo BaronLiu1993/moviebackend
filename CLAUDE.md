@@ -10,7 +10,7 @@ A TypeScript + Express.js backend for a Korean drama discovery and rating platfo
 - **Database:** Supabase (PostgreSQL + Auth + RPC functions)
 - **Embeddings:** OpenAI `text-embedding-3-small` (384 dimensions)
 - **Queues:** BullMQ + Redis (async embedding recomputation)
-- **Analytics Pipeline:** KafkaJS -> ClickHouse (event streaming, currently consumer is disabled in `index.ts`)
+- **Analytics Pipeline:** Direct ClickHouse inserts (event tracking for interactions and impressions)
 - **ML:** Python (numpy for incremental vector math, lightgbm/pandas installed but training is stub)
 - **External API:** TMDB (movie/TV metadata)
 
@@ -33,12 +33,10 @@ service/
   query/queryService.ts                 # getInitialFeed() calls RPC get_recommended + TMDB popular/airing, getFriendFilms() calls RPC get_friends_films
   rate/rateService.ts                   # insertRating/updateRating/deleteRating all enqueue embedding recomputation jobs
   friend/friendService.ts               # Friend request lifecycle, getProfile() checks friendship via RPC is_following
-  analytics/analyticsService.ts         # handleClick/handleImpression/handleLike/handleRating -> Kafka topic "recommendation-events"
+  analytics/analyticsService.ts         # handleClick/handleImpression/handleLike/handleRating -> direct ClickHouse inserts
   supabase/configureSupabase.ts         # Three client factories: createSupabaseClient(accessToken), createSignInSupabase() (PKCE OAuth), createServerSideSupabaseClient() (admin/service role)
   tmdb/tmdbService.ts                   # fetchTmdbOverview(tmdbId) tries TV endpoint first, falls back to Movie
-  kafka/configureKafkaProducer.ts       # sendEventToKafkaRecommendations() -> topic "recommendation-events"
-  kafka/configureKafkaConsumer.ts       # startClickHouseConsumer() reads from Kafka, writes to ClickHouse (currently disabled)
-  clickhouse/clickhouseService.ts       # insertEvent() writes to "user_interactions" table
+  clickhouse/clickhouseService.ts       # insertInteractionEvents() / insertImpressionEvent() writes to ClickHouse tables
   bookmarkService/bookmarkService.ts    # bookmarkFilm/removeBookmark on "bookmarks" table
 queue/
   redis/redis.ts                        # Redis connection with TLS support, exponential backoff retry

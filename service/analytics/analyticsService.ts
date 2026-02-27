@@ -1,5 +1,5 @@
 import type { UUID } from "node:crypto";
-import { sendInteractionEvent, sendImpressionEvent } from "../kafka/configureKafkaProducer.js";
+import { insertInteractionEvents, insertImpressionEvent } from "../clickhouse/clickhouseService.js";
 
 interface ImpressionEvent {
   userId: UUID;
@@ -20,12 +20,11 @@ export const handleLike = async ({
   name: string;
 }) => {
   try {
-    await sendInteractionEvent({
+    await insertInteractionEvents({
       userId,
       tmdbId,
       name,
       interactionType: "like",
-      timestamp: new Date().toISOString(),
     });
   } catch (err) {
     console.error("Failed to log recommendation like:", err);
@@ -43,14 +42,15 @@ export const handleRating = async ({
   name: string;
   rating: number;
 }) => {
+    console.log(tmdbId)
+    
   try {
-    await sendInteractionEvent({
+    await insertInteractionEvents({
       userId,
       tmdbId,
       name,
-      rating,
       interactionType: "rating",
-      timestamp: new Date().toISOString(),
+      rating,
     });
   } catch (err) {
     console.error("Failed to log recommendation rating:", err);
@@ -67,12 +67,11 @@ export const handleBookmark = async ({
   name: string;
 }) => {
   try {
-    await sendInteractionEvent({
+    await insertInteractionEvents({
       userId,
       tmdbId,
       name,
       interactionType: "bookmark",
-      timestamp: new Date().toISOString(),
     });
   } catch (err) {
     console.error("Failed to log recommendation bookmark:", err);
@@ -92,7 +91,7 @@ export const handleImpression = async (impressions: ImpressionEvent[]) => {
             throw new Error("Invalid impression in batch");
           }
 
-          await sendImpressionEvent({
+          await insertImpressionEvent({
             userId,
             tmdbId,
             sessionId,

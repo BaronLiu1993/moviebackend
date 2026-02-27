@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
+import { handleBookmark } from "../analytics/analyticsService.js";
 
 // Types
 type UserRequest = {
@@ -67,6 +68,8 @@ export const bookmarkFilm = async ({
       console.error(`[bookmarkFilm] Error bookmarking film ${tmdbId} for user ${userId}:`, error);
       throw new Error(`Failed to bookmark film: ${error.message}`);
     }
+
+    await handleBookmark({ userId, tmdbId, name: title });
   } catch (err) {
     console.error(`[bookmarkFilm] Exception:`, err);
     throw err;

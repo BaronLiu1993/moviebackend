@@ -10,7 +10,6 @@ import queryRouter from "./router/feed/feedRouter.js"
 import rateRouter from "./router/rate/rateRouter.js"
 import friendRouter from './router/friend/friendRouter.js';
 import analyticsRouter from "./router/analytics/analyticsRouter.js"
-import { startInteractionConsumer, startImpressionConsumer } from './service/kafka/configureKafkaConsumer.js';
 
 // Workers
 import './queue/updateEmbedding/updateEmbeddingWorker.js';
@@ -52,11 +51,6 @@ app.get("/health", (req, res) => {
 
 app.listen(8000, async () => {
     console.log(`Running on Server`)
-    try {
-      await startInteractionConsumer();
-      await startImpressionConsumer();
-    } catch (err) {
-      console.error("Failed to start ClickHouse consumer:", err);}
 })
 
 

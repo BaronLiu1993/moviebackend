@@ -121,6 +121,8 @@ export const deleteRating = async ({
     .eq("rating_id", ratingId);
 
   if (deleteError) throw new Error("Failed to delete rating");
+
+  await handleRating({ userId, tmdbId: ratingData.tmdb_id, name: "", rating: 0 });
   await updateEmbeddingQueue.add('recompute', {
     userId,
     accessToken,
@@ -155,6 +157,8 @@ export const updateRating = async ({
     .eq("rating_id", ratingId);
 
   if (updateError) throw new Error("Failed to update rating");
+
+  await handleRating({ userId, tmdbId: ratingData.tmdb_id, name: "", rating: newRating });
   await updateEmbeddingQueue.add('recompute', {
     userId,
     accessToken,

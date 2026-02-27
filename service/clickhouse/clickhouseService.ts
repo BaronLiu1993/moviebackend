@@ -23,18 +23,23 @@ interface Impression {
   surface: string;
 }
 
+// ClickHouse expects 'YYYY-MM-DD HH:MM:SS' — not ISO 8601
+function clickhouseNow(): string {
+  return new Date().toISOString().replace("T", " ").replace(/\..+/, "");
+}
+
 // Insert a clickhouse interaction record for analytics
 export async function insertInteractionEvents(event: Interaction) {
   const { userId, tmdbId, interactionType, rating } = event;
+  console.log(tmdbId)
   const response = await client.insert({
     table: "interactions",
     values: [
       {
         user_id: userId,
-        film_id: tmdbId,
+        tmdb_id: tmdbId,
         interaction_type: interactionType,
         rating: rating,
-        created_at: new Date().toISOString(),
       },
     ],
     format: "JSONEachRow",
@@ -44,17 +49,15 @@ export async function insertInteractionEvents(event: Interaction) {
 
 export async function insertImpressionEvent(event: Impression) {
   const { userId, tmdbId, position, surface, sessionId } = event;
-
   const test = await client.insert({
     table: "impressions",
     values: [
       {
         user_id: userId,
-        film_id: tmdbId,
+        tmdb_id: tmdbId,
         session_id: sessionId,
         position,
         surface,
-        shown_at: new Date().toISOString(),
       },
     ],
     format: "JSONEachRow",
