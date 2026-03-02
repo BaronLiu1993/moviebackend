@@ -21,13 +21,8 @@ type Film = {
   film_id?: string;
   genre_ids: number[];
   similarity?: number;
+  photo_url?: string;
 };
-
-type SelectFriendFilmsRequestType = { 
-  supabaseClient: SupabaseClient; 
-  userId: UUID;
-  offset?: number;
-}; 
 
 type UserRequest = {
   supabaseClient: SupabaseClient;
@@ -106,14 +101,15 @@ export const getInitialFeed = async ({
       supabaseClient.rpc("get_recommended_films", {
         p_user_id: userId,
         limit_count: 300,
-        offset_count: 0,
+        offset_count: 0,  
       }),
       getPopularDramas(),
       getAiringDramas() 
     ]);
 
+    console.log('[getInitialFeed] RPC result:', recommendedResult);
+
     const { data, error } = recommendedResult;
-    //console.log(popularData)
 
     if (error) {
       throw new Error(`Failed to fetch recommended films: ${error.message}`);
@@ -123,14 +119,16 @@ export const getInitialFeed = async ({
       tmdb_id: item.id,
       title: item.name,
       release_year: item.first_air_date?.split('-')[0] || null,
-      genre_ids: item.genre_ids || []
+      genre_ids: item.genre_ids || [],
+      photo_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null
     }));
     
     const standardizedAiring = (airingData.results || []).map((item: any) => ({
       tmdb_id: item.id,
       title: item.name,
       release_year: item.first_air_date?.split('-')[0] || null,
-      genre_ids: item.genre_ids || []
+      genre_ids: item.genre_ids || [],
+      photo_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null
     }));
     
     const seen = new Set<number>();
@@ -147,7 +145,6 @@ export const getInitialFeed = async ({
     
     // Apply MMR for diversity
     const result = applyMMR(combined as Film[], MMR_FINAL_COUNT, MMR_LAMBDA);
-    
     console.log(`[getInitialFeed] Total records: ${result.length} (before MMR: ${combined.length}, personalized: ${data?.length || 0}, popular: ${standardizedPopular.length}, airing: ${standardizedAiring.length})`);
     
     return result;
@@ -155,24 +152,6 @@ export const getInitialFeed = async ({
     console.error(`[getInitialFeed] Exception:`, err);
     throw err;
   }
-};
-
-// Returns films that a user's friends are watching or rating
-export const getFriendFilms = async ({
-  supabaseClient,
-  userId,
-  offset = 0,
-}: SelectFriendFilmsRequestType) => {
-  try {
-    const { data, error } = await supabaseClient.rpc("get_friend_films", {
-      p_user_id: userId,
-      limit_count: 20,
-      offset_count: offset,
-    });
-  } catch {
-
-  }
-
 };
 
 

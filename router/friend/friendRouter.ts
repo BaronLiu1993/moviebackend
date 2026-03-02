@@ -24,7 +24,6 @@ router.post("/send-request", verifyToken, validateZod(sendFriendRequestSchema), 
     await sendFriendRequest({ userId, friendId, supabaseClient });
     return res.status(201).send();
   } catch (err) {
-    console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -41,7 +40,6 @@ router.get("/get-friend-requests", verifyToken, async (req, res) => {
     const data = await getFriendRequests({ userId, supabaseClient });
     return res.status(200).json({ data });
   } catch (err) {
-    console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

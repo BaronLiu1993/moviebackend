@@ -1,7 +1,6 @@
 import { Router } from "express";
 import {
   getInitialFeed,
-  getFriendFilms,
   getAiringDramas,
   getPopularDramas
 } from "../../service/feed/feedService.js";
@@ -41,23 +40,6 @@ router.get("/initial-feed", verifyToken, async (req, res) => {
     return res.status(200).json({ data: response });
   } catch (err){
     console.log(err);
-    return res.status(500).json({ message: "Internal Server Error" });
-  }
-});
-
-// Begin Search By Taking Friend's Bookmarked Films (Friend's Film)
-router.get("/friend-search", verifyToken, async (req, res) => {
-  const supabaseClient = req.supabaseClient;
-  const userId = req.user?.sub as UUID;
-
-  if (!supabaseClient || !userId) {
-    return res.status(401).json({ message: "Missing Supabase or UserID" });
-  }
-  try {
-    const data = await getFriendFilms({ supabaseClient, userId });
-    return res.status(200).json({ data });
-  } catch (err) {
-    console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

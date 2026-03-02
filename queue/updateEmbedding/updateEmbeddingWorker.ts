@@ -62,7 +62,6 @@ const worker = new Worker<EmbeddingJobData>(
       throw new Error(`User ${userId} has no interest_embedding — registration incomplete`);
     }
 
-    // Delegate vector math to Python/numpy
     const result = await runPython({
       operation,
       film_embedding: parseVector(filmResult.data.film_embedding),

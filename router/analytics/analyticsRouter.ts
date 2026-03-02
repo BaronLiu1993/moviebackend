@@ -16,6 +16,7 @@ const router = Router();
 
 router.post(
   "/bookmark",
+  verifyToken,
   validateZod(bookmarkRequestSchema),
   async (req, res) => {
     const { userId, tmdbId, film_name, genre_ids } = req.body;
@@ -34,7 +35,8 @@ router.post(
   },
 );
 
-router.post("/like", validateZod(likeRequestSchema), async (req, res) => {
+router.post("/like",   verifyToken,
+validateZod(likeRequestSchema), async (req, res) => {
   const { userId, tmdbId, film_name, genre_ids } = req.body;
   try {
     await handleLike({
