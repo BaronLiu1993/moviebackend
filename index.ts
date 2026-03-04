@@ -6,7 +6,7 @@ import cookieParser from "cookie-parser"
 import rateLimit from 'express-rate-limit';
 
 import authRouter from "./router/auth/authRouter.js"
-import queryRouter from "./router/feed/feedRouter.js"
+import feedRouter from "./router/feed/feedRouter.js"
 import rateRouter from "./router/rate/rateRouter.js"
 import friendRouter from './router/friend/friendRouter.js';
 import analyticsRouter from "./router/analytics/analyticsRouter.js"
@@ -32,7 +32,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded());
 
 app.use("/v1/api/auth", authRouter)
-app.use("/v1/api/query", queryRouter)
+app.use("/v1/api/feed", feedRouter)
 app.use("/v1/api/rate", rateRouter)
 app.use("/v1/api/friend", friendRouter)
 app.use("/v1/api/analytics", analyticsRouter)

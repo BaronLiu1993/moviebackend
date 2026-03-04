@@ -11,8 +11,7 @@ const TMDB_API_BASE = process.env.TMDB_API_BASE!;
 const TMDB_API_KEY = process.env.TMDB_API_KEY!;
 
 // MMR config
-const MMR_LAMBDA = 0.8; 
-const MMR_FINAL_COUNT = 75; 
+const MMR_LAMBDA = 0.8;
 
 type Film = {
   tmdb_id: number;
@@ -22,6 +21,44 @@ type Film = {
   genre_ids: number[];
   similarity?: number;
   photo_url?: string;
+  media_type?: string;
+};
+
+type RecommendedFilm = {
+  tmdb_id: number;
+  title: string;
+  release_year: string;
+  film_id: string;
+  genre_ids: number[];
+  similarity: number;
+  photo_url: string | null;
+  media_type: string;
+};
+
+type GetRecommendedFilmsRequest = {
+  supabaseClient: SupabaseClient;
+  userId: UUID;
+  limitCount: number;
+  offsetCount: number;
+};
+
+const getRecommendedFilms = async ({
+  supabaseClient,
+  userId,
+  limitCount,
+  offsetCount,
+}: GetRecommendedFilmsRequest): Promise<RecommendedFilm[]> => {
+  const { data, error } = await supabaseClient.rpc("get_recommended_films", {
+    p_user_id: userId,
+    limit_count: limitCount,
+    offset_count: offsetCount,
+  });
+
+  if (error) {
+    throw new Error(`Failed to fetch recommended films: ${error.message}`);
+  }
+
+  return (data ?? []) as RecommendedFilm[];
 };
 
 type UserRequest = {
@@ -29,11 +66,19 @@ type UserRequest = {
   userId: UUID;
 };
 
-/**
- * MMR (Maximal Marginal Relevance) reranking for diversity.
- * MMR = λ * relevance(item) - (1-λ) * max_similarity(item, selected_items)
- * Uses genre overlap as diversity metric (Jaccard similarity).
- */
+type GetFeedRequest = UserRequest & {
+  page?: number;
+  pageSize?: number;
+};
+
+type GetFeedResponse = {
+  films: Film[];
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+};
+
+//MMR = λ * relevance(item) - (1-λ) * max_similarity(item, selected_items)
 const applyMMR = (
   candidates: Film[],
   finalCount: number,
@@ -88,66 +133,64 @@ const applyMMR = (
 
 //Generate feed for users precompute -> cache -> fetch from cache (Redis) -> fallback to real-time computation if cache miss
 
-
 // Returns personalized film recommendations based on user embeddings, with pagination support
 export const getInitialFeed = async ({
   supabaseClient,
   userId,
-}: UserRequest) => {
+  page = 1,
+  pageSize = 20,
+}: GetFeedRequest): Promise<GetFeedResponse> => {
   try {
-    console.log(`[getInitialFeed] Fetching initial feed for user`);
-    
-    const [recommendedResult, popularData, airingData] = await Promise.all([
-      supabaseClient.rpc("get_recommended_films", {
-        p_user_id: userId,
-        limit_count: 300,
-        offset_count: 0,  
-      }),
-      getPopularDramas(),
-      getAiringDramas() 
+    const RPC_BATCH_SIZE = 300;
+    const offsetCount = (page - 1) * RPC_BATCH_SIZE;
+    const isFirstPage = page === 1;
+
+    const [recommendedFilms, popularData, airingData] = await Promise.all([
+      getRecommendedFilms({ supabaseClient, userId, limitCount: RPC_BATCH_SIZE, offsetCount }),
+      ...(isFirstPage ? [getPopularDramas(), getAiringDramas()] : []),
     ]);
 
-    console.log('[getInitialFeed] RPC result:', recommendedResult);
+    console.log(`[getInitialFeed] RPC returned ${recommendedFilms.length} films`);
 
-    const { data, error } = recommendedResult;
+    const data = recommendedFilms;
 
-    if (error) {
-      throw new Error(`Failed to fetch recommended films: ${error.message}`);
-    }
+    const standardizedPopular = isFirstPage
+      ? (popularData.results || []).map((item: any) => ({
+          tmdb_id: item.id,
+          title: item.name,
+          release_year: item.first_air_date?.split('-')[0] || null,
+          genre_ids: item.genre_ids || [],
+          photo_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+        }))
+      : [];
 
-    const standardizedPopular = (popularData.results || []).map((item: any) => ({
-      tmdb_id: item.id,
-      title: item.name,
-      release_year: item.first_air_date?.split('-')[0] || null,
-      genre_ids: item.genre_ids || [],
-      photo_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null
-    }));
-    
-    const standardizedAiring = (airingData.results || []).map((item: any) => ({
-      tmdb_id: item.id,
-      title: item.name,
-      release_year: item.first_air_date?.split('-')[0] || null,
-      genre_ids: item.genre_ids || [],
-      photo_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null
-    }));
-    
+    const standardizedAiring = isFirstPage
+      ? (airingData.results || []).map((item: any) => ({
+          tmdb_id: item.id,
+          title: item.name,
+          release_year: item.first_air_date?.split('-')[0] || null,
+          genre_ids: item.genre_ids || [],
+          photo_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+        }))
+      : [];
+
     const seen = new Set<number>();
     const combined = [
-      ...(data || []),
+      ...data,
       ...standardizedPopular,
-      ...standardizedAiring
+      ...standardizedAiring,
     ].filter((item: any) => {
       if ((item.tags || []).includes(99)) return false;
       if (seen.has(item.tmdb_id)) return false;
       seen.add(item.tmdb_id);
       return true;
     });
-    
-    // Apply MMR for diversity
-    const result = applyMMR(combined as Film[], MMR_FINAL_COUNT, MMR_LAMBDA);
-    console.log(`[getInitialFeed] Total records: ${result.length} (before MMR: ${combined.length}, personalized: ${data?.length || 0}, popular: ${standardizedPopular.length}, airing: ${standardizedAiring.length})`);
-    
-    return result;
+
+    const films = applyMMR(combined as Film[], pageSize, MMR_LAMBDA);
+    const hasMore = data.length >= RPC_BATCH_SIZE;
+    console.log(`[getInitialFeed] page=${page}, returned=${films.length}, hasMore=${hasMore} (candidates: ${combined.length}, personalized: ${data.length}, popular: ${standardizedPopular.length}, airing: ${standardizedAiring.length})`);
+
+    return { films, page, pageSize, hasMore };
   } catch (err) {
     console.error(`[getInitialFeed] Exception:`, err);
     throw err;

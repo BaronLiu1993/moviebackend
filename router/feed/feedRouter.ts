@@ -1,12 +1,11 @@
 import { Router } from "express";
 import {
   getInitialFeed,
-  getAiringDramas,
-  getPopularDramas
 } from "../../service/feed/feedService.js";
 import { verifyToken } from "../../middleware/verifyToken.js";
 import type { UUID } from "node:crypto";
 import { selectRatings } from "../../service/rate/rateService.js";
+import { getFeedQuerySchema } from "../../schemas/feedSchema.js";
 
 const router = Router();
 
@@ -28,37 +27,26 @@ router.get("/ratings", verifyToken, async (req, res) => {
 });
 
 // Generate personalized feed for users based on their embeddings and interactions
-router.get("/initial-feed", verifyToken, async (req, res) => {
+// Supports pagination for infinite scrolling: ?page=1&pageSize=20
+router.get("/generate-feed", verifyToken, async (req, res) => {
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID;
-  
+
   if (!supabaseClient || !userId) {
     return res.status(401).json({ message: "Missing Supabase or UserID" });
   }
-  try {
-    const response = await getInitialFeed({ supabaseClient, userId });
-    return res.status(200).json({ data: response });
-  } catch (err){
-    console.log(err);
-    return res.status(500).json({ message: "Internal Server Error" });
-  }
-});
 
-// TEST ENDPOINTS DO NOT USE IN PRODUCTION
-router.get("/airing", async (req, res) => {
-  try {
-    const data = await getAiringDramas();
-    return res.status(200).json({ data });
-  } catch (err) {
-    console.log(err);
-    return res.status(500).json({ message: "Internal Server Error" });
+  const parsed = getFeedQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ message: "Invalid query parameters" });
   }
-});
 
-router.get("/popular", async (req, res) => {
+  const { page, pageSize } = parsed.data;
+  console.log(page, pageSize)
+
   try {
-    const data = await getPopularDramas();
-    return res.status(200).json({ data });
+    const response = await getInitialFeed({ supabaseClient, userId, page, pageSize });
+    return res.status(200).json(response);
   } catch (err) {
     console.log(err);
     return res.status(500).json({ message: "Internal Server Error" });
