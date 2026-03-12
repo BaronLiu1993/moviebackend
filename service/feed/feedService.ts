@@ -42,6 +42,24 @@ type GetRecommendedFilmsRequest = {
   offsetCount: number;
 };
 
+type UserRequest = {
+  supabaseClient: SupabaseClient;
+  userId: UUID;
+};
+
+type GetFeedRequest = UserRequest & {
+  page?: number;
+  pageSize?: number;
+};
+
+type GetFeedResponse = {
+  films: Film[];
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+};
+
+
 const getRecommendedFilms = async ({
   supabaseClient,
   userId,
@@ -61,22 +79,6 @@ const getRecommendedFilms = async ({
   return (data ?? []) as RecommendedFilm[];
 };
 
-type UserRequest = {
-  supabaseClient: SupabaseClient;
-  userId: UUID;
-};
-
-type GetFeedRequest = UserRequest & {
-  page?: number;
-  pageSize?: number;
-};
-
-type GetFeedResponse = {
-  films: Film[];
-  page: number;
-  pageSize: number;
-  hasMore: boolean;
-};
 
 //MMR = λ * relevance(item) - (1-λ) * max_similarity(item, selected_items)
 const applyMMR = (
