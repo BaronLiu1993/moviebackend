@@ -66,10 +66,6 @@ export async function insertImpressionEvent(event: Impression) {
   });
 }
 
-//-- Each row = one (user, film) impression that was shown in a feed
-//-- label = 1 if user interacted with this film (at any time), 0 otherwise
-//-- This version avoids NULLs by filling missing averages with 0.
-
 async function generateTrainingData() {
   const resultSet = await client.query({
     query: `

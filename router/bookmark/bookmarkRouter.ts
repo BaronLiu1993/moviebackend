@@ -18,7 +18,7 @@ const router = Router();
 router.get("/select-bookmarks", verifyToken, async (req, res) => {
   const userId = req.user?.sub as UUID;
   const supabaseClient = req.supabaseClient!;
-
+  
   if (!userId || !supabaseClient) {
     return res.status(400).json({ message: "Missing Inputs" });
   }

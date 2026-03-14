@@ -40,7 +40,6 @@ type EnhanceProfileRequest = {
   tmdbId: number;
 };
 
-// helpers
 // Checks whether two users have an accepted friendship relationship
 const checkIsFriends = async (
   supabaseClient: SupabaseClient,
@@ -85,7 +84,6 @@ const validatePendingRequest = async (
   }
 };
 
-// service functions
 // Sends a friend request with a pending status
 export const sendFriendRequest = async ({
   userId,

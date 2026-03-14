@@ -1,19 +1,19 @@
 import * as z from "zod";
 
 export const sendFriendRequestSchema = z.object({
-    friendId: z.string().uuid(),
+    friendId: z.uuid(),
 });
 
 export const acceptFriendRequestSchema = z.object({
-    requestId: z.string().uuid(),
+    requestId: z.uuid(),
 });
 
 export const declineFriendRequestSchema = z.object({
-    requestId: z.string().uuid(),
+    requestId: z.uuid(),
 });
 
 export const getProfileQuerySchema = z.object({
-    friendId: z.string().uuid(),
+    friendId: z.uuid(),
 });
 
 export type SendFriendRequest = z.infer<typeof sendFriendRequestSchema>;
