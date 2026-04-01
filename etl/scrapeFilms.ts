@@ -10,7 +10,7 @@ const EXCLUDED_GENRES = "10764,10763,10767,10762";
 
 type MediaType = "tv" | "movie";
 
-type TmdbResultSchema = {
+type TmdbResultType = {
   id: number;
   name?: string;
   title?: string;
@@ -24,15 +24,15 @@ type TmdbResultSchema = {
   media_type: MediaType;
 };
 
-type TmdbDiscoverResponseSchema = {
+type TmdbDiscoverResponseType = {
   page: number;
-  results: TmdbResultSchema[];
+  results: TmdbResultType[];
   total_pages: number;
   total_results: number;
 };
 
+// Build Requests
 const headers = { Authorization: `Bearer ${TMDB_API_KEY}` };
-
 const buildDiscoverParams = (
   country: string,
   page: number,
@@ -61,7 +61,7 @@ const fetchDiscoverPage = async (
   country: string,
   page: number,
   mediaType: MediaType,
-): Promise<TmdbResultSchema[]> => {
+): Promise<TmdbResultType[]> => {
   const params = buildDiscoverParams(country, page, mediaType);
   const res = await fetch(
     `${TMDB_API_BASE}/3/discover/${mediaType}?${params.toString()}`,
@@ -75,13 +75,13 @@ const fetchDiscoverPage = async (
     return [];
   }
 
-  const data = (await res.json()) as TmdbDiscoverResponseSchema;
+  const data = (await res.json()) as TmdbDiscoverResponseType;
   return (data.results ?? [])
     .filter((r) => (r.popularity ?? 0) >= MIN_POPULARITY)
     .map((r) => ({ ...r, media_type: mediaType }));
 };
 
-const fetchAllForCountry = async (country: string): Promise<TmdbResultSchema[]> => {
+const fetchAllForCountry = async (country: string): Promise<TmdbResultType[]> => {
   const pages = Array.from({ length: PAGES_TO_FETCH }, (_, i) => i + 1);
 
   const [tvResults, movieResults] = await Promise.all([
@@ -89,7 +89,8 @@ const fetchAllForCountry = async (country: string): Promise<TmdbResultSchema[]> 
     Promise.all(pages.map((p) => fetchDiscoverPage(country, p, "movie"))),
   ]);
 
-  const deduped = new Map<string, TmdbResultSchema>();
+  const deduped = new Map<string, TmdbResultType>();
+
   for (const result of [...tvResults.flat(), ...movieResults.flat()]) {
     const key = `${result.media_type}-${result.id}`;
     if (!deduped.has(key)) {
@@ -100,23 +101,22 @@ const fetchAllForCountry = async (country: string): Promise<TmdbResultSchema[]> 
   return [...deduped.values()];
 };
 
-const bulkInsertFilms = async (films: TmdbResultSchema[]) => {
+const bulkInsertFilms = async (films: TmdbResultType[]) => {
   try {
     const supabase = createServerSideSupabaseClient();
     const { error: filmInsertionError } = await supabase
       .from("Films")
       .insert(films);
     if (filmInsertionError) {
-      throw Error("Failed to insert films: " + filmInsertionError?.message);
+      throw new Error("Failed to insert films: " + filmInsertionError?.message);
     }
     console.log(`Inserted ${films.length} films successfully.`);
-  } catch {
-    console.error("Error inserting films into database");
-    throw Error("Failed to insert films");
+  } catch (err) {
+    console.error("Error inserting films into database", err);
+    throw new Error("Failed to insert films");
   }
 };
 
-// Main function to scrape films and insert into database
 const scrapeFilms = async () => {
   try {
     for (const country of COUNTRIES) {
@@ -128,7 +128,7 @@ const scrapeFilms = async () => {
     console.log("Finished scraping films for all countries.");
   } catch {
     console.error("Error fetching films from TMDB");
-    throw Error("Failed to fetch films from TMDB");
+    throw new Error("Failed to fetch films from TMDB");
   }
 };
 

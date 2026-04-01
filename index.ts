@@ -9,7 +9,7 @@ import authRouter from "./router/auth/authRouter.js"
 import feedRouter from "./router/feed/feedRouter.js"
 import rateRouter from "./router/rate/rateRouter.js"
 import friendRouter from './router/friend/friendRouter.js';
-import analyticsRouter from "./router/analytics/analyticsRouter.js"
+
 import bookmarkRouter from "./router/bookmark/bookmarkRouter.js"
 
 // Workers
@@ -35,7 +35,7 @@ app.use("/v1/api/auth", authRouter)
 app.use("/v1/api/feed", feedRouter)
 app.use("/v1/api/rate", rateRouter)
 app.use("/v1/api/friend", friendRouter)
-app.use("/v1/api/analytics", analyticsRouter)
+
 app.use("/v1/api/bookmark", bookmarkRouter)
 
 const limiter = rateLimit({

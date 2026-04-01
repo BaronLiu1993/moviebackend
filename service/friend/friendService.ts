@@ -47,11 +47,13 @@ const checkIsFriends = async (
     });
 
     if (error) {
-      throw new Error("Failed to check friendship status");
+      console.error(`[checkIsFriends] Error checking friendship between ${userId} and ${friendId}:`, error);
+      throw new Error(`Failed to check friendship status: ${error.message}`);
     }
 
     return Boolean(data);
   } catch (err) {
+    console.error(`[checkIsFriends] Exception:`, err);
     throw err;
   }
 };
@@ -62,19 +64,25 @@ const validatePendingRequest = async (
   requestId: UUID,
   userId: UUID
 ) => {
-  const { data, error } = await supabaseClient
-    .from("Friends")
-    .select("status")
-    .eq("request_id", requestId)
-    .eq("friend_id", userId)
-    .single();
+  try {
+    const { data, error } = await supabaseClient
+      .from("Friends")
+      .select("status")
+      .eq("request_id", requestId)
+      .eq("friend_id", userId)
+      .single();
 
-  if (error || !data) {
-    throw new Error("Friend request not found");
-  }
+    if (error || !data) {
+      console.error(`[validatePendingRequest] Request ${requestId} not found for user ${userId}:`, error);
+      throw new Error("Friend request not found");
+    }
 
-  if (data.status !== "pending") {
-    throw new Error("Only pending friend requests can be modified");
+    if (data.status !== "pending") {
+      throw new Error("Only pending friend requests can be modified");
+    }
+  } catch (err) {
+    console.error(`[validatePendingRequest] Exception:`, err);
+    throw err;
   }
 };
 
@@ -121,13 +129,13 @@ export const sendFriendRequest = async ({
     });
 
     if (error) {
-      console.log(error)
-      throw new Error("Failed to create friend request");
+      console.error(`[sendFriendRequest] Error creating request from ${userId} to ${friendId}:`, error);
+      throw new Error(`Failed to create friend request: ${error.message}`);
     }
 
     return true;
   } catch (err) {
-    console.log(err)
+    console.error(`[sendFriendRequest] Exception:`, err);
     throw err;
   }
 };
@@ -138,16 +146,22 @@ export const acceptFriendRequest = async ({
   requestId,
   supabaseClient,
 }: FriendActionRequest) => {
-  await validatePendingRequest(supabaseClient, requestId, userId);
+  try {
+    await validatePendingRequest(supabaseClient, requestId, userId);
 
-  const { error } = await supabaseClient
-    .from("Friends")
-    .update({ status: "accepted" })
-    .eq("request_id", requestId)
-    .eq("friend_id", userId);
+    const { error } = await supabaseClient
+      .from("Friends")
+      .update({ status: "accepted" })
+      .eq("request_id", requestId)
+      .eq("friend_id", userId);
 
-  if (error) {
-    throw new Error("Failed to accept friend request");
+    if (error) {
+      console.error(`[acceptFriendRequest] Error accepting request ${requestId} for user ${userId}:`, error);
+      throw new Error(`Failed to accept friend request: ${error.message}`);
+    }
+  } catch (err) {
+    console.error(`[acceptFriendRequest] Exception:`, err);
+    throw err;
   }
 };
 
@@ -157,16 +171,22 @@ export const rejectFriendRequest = async ({
   requestId,
   supabaseClient,
 }: FriendActionRequest) => {
-  await validatePendingRequest(supabaseClient, requestId, userId);
+  try {
+    await validatePendingRequest(supabaseClient, requestId, userId);
 
-  const { error } = await supabaseClient
-    .from("Friends")
-    .delete()
-    .eq("request_id", requestId)
-    .eq("friend_id", userId);
+    const { error } = await supabaseClient
+      .from("Friends")
+      .delete()
+      .eq("request_id", requestId)
+      .eq("friend_id", userId);
 
-  if (error) {
-    throw new Error("Failed to reject friend request");
+    if (error) {
+      console.error(`[rejectFriendRequest] Error rejecting request ${requestId} for user ${userId}:`, error);
+      throw new Error(`Failed to reject friend request: ${error.message}`);
+    }
+  } catch (err) {
+    console.error(`[rejectFriendRequest] Exception:`, err);
+    throw err;
   }
 };
 
@@ -189,11 +209,13 @@ export const getFollowers = async ({
       .range(from, to);
 
     if (error) {
-      throw new Error("Failed to fetch followers");
+      console.error(`[getFollowers] Error fetching followers for user ${userId}:`, error);
+      throw new Error(`Failed to fetch followers: ${error.message}`);
     }
 
     return data;
   } catch (err) {
+    console.error(`[getFollowers] Exception:`, err);
     throw err;
   }
 };
@@ -210,11 +232,13 @@ export const getFriendRequests = async ({
       .eq("status", "pending");
 
     if (error) {
-      throw new Error("Failed to fetch friend requests");
+      console.error(`[getFriendRequests] Error fetching requests for user ${userId}:`, error);
+      throw new Error(`Failed to fetch friend requests: ${error.message}`);
     }
 
     return data;
   } catch (err) {
+    console.error(`[getFriendRequests] Exception:`, err);
     throw err;
   }
 };
@@ -237,11 +261,13 @@ export const getFollowing = async ({
       .range(from, to);
 
     if (error) {
-      throw new Error("Failed to fetch following");
+      console.error(`[getFollowing] Error fetching following for user ${userId}:`, error);
+      throw new Error(`Failed to fetch following: ${error.message}`);
     }
 
     return data;
   } catch (err) {
+    console.error(`[getFollowing] Exception:`, err);
     throw err;
   }
 };
@@ -265,7 +291,8 @@ export const getProfile = async ({
       .eq("user_id", friendId);
 
     if (ratingsError) {
-      throw new Error("Failed to fetch ratings");
+      console.error(`[getProfile] Error fetching ratings for friend ${friendId}:`, ratingsError);
+      throw new Error(`Failed to fetch ratings: ${ratingsError.message}`);
     }
 
     const { data: profile, error: profileError } = await supabaseClient
@@ -275,7 +302,8 @@ export const getProfile = async ({
       .single();
 
     if (profileError || !profile) {
-      throw new Error("Failed to fetch user profile");
+      console.error(`[getProfile] Error fetching profile for friend ${friendId}:`, profileError);
+      throw new Error(`Failed to fetch user profile: ${profileError?.message}`);
     }
 
     return {
@@ -283,24 +311,8 @@ export const getProfile = async ({
       profile,
     };
   } catch (err) {
+    console.error(`[getProfile] Exception:`, err);
     throw err;
   }
 };
 
-export const enhanceFriendProfile = async ({
-  userId,
-  friendId,
-  tmdbId,
-  supabaseClient,
-}: EnhanceProfileRequest) => {
-  try {
-    const isFriend = await checkIsFriends(supabaseClient, userId, friendId);
-
-    if (!isFriend) {
-      throw new Error("Users are not friends");
-    }
-
-  } catch (err) {
-    throw err;
-  }
-};

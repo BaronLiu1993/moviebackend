@@ -76,11 +76,15 @@ export const bookmarkFilm = async ({
   }
 };
 
+type RemoveBookmarkRequest = UserRequest & {
+  tmdbId: number;
+};
+
 export const removeBookmark = async ({
   supabaseClient,
   userId,
   tmdbId,
-}: BookmarkRequest): Promise<void> => {
+}: RemoveBookmarkRequest): Promise<void> => {
   try {
     const { error } = await supabaseClient
       .from("Bookmarks")

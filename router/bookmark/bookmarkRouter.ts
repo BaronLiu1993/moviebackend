@@ -4,7 +4,7 @@ import {
   selectBookmarkFilms,
   bookmarkFilm,
   removeBookmark,
-} from "../../service/bookmarkService/bookmarkService.js";
+} from "../../service/bookmark/bookmarkService.js";
 import { validateZod } from "../../middleware/schemaValidation.js";
 import {
   bookmarkFilmRequestSchema,
@@ -66,7 +66,7 @@ router.delete("/remove-bookmark", verifyToken, validateZod(removeBookmarkRequest
   }
 
   try {
-    await removeBookmark({ supabaseClient, userId, tmdbId, title: "", genre: [] });
+    await removeBookmark({ supabaseClient, userId, tmdbId });
     return res.status(204).send();
   } catch (err) {
     return res.status(500).json({ message: "Internal Server Error" });

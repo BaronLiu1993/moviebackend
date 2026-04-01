@@ -1,12 +1,5 @@
 import * as z from "zod";
 
-export const bookmarkRequestSchema = z.object({
-    userId: z.uuid(),
-    tmdbId: z.number().int(),
-    film_name: z.string().min(1),
-    genre_ids: z.array(z.number().int()).optional(),
-});
-
 export const likeRequestSchema = z.object({
     userId: z.uuid(),
     tmdbId: z.number().int(),
@@ -28,6 +21,5 @@ export const bulkImpressionsRequestSchema = z.object({
     impressions: z.array(impressionSchema).min(1),
 });
 
-export type BookmarkRequest = z.infer<typeof bookmarkRequestSchema>;
 export type LikeRequest = z.infer<typeof likeRequestSchema>;
 export type BulkImpressionsRequest = z.infer<typeof bulkImpressionsRequestSchema>;
