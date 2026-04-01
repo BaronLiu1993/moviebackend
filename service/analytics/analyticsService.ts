@@ -68,3 +68,11 @@ export const handleBookmark = async ({
     console.error("Failed to log bookmark:", err);
   }
 };
+
+export const handleClick = async () => {
+
+}
+
+export const handleFeed = async () => {
+
+}

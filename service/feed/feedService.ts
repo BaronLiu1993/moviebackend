@@ -78,7 +78,6 @@ export const getCollaborativeFilters = async ({
     console.log(
       `[getCollaborativeFilters] Fetching collaborative filters for user: ${userId}`,
     );
-    // Get Top K closest friends and then get their top rated-films as collaborative filters
     const { data: topKData, error: topKError } = await supabaseClient.rpc(
       "get_collaborative_filters",
       {
@@ -87,11 +86,11 @@ export const getCollaborativeFilters = async ({
     );
 
     if (topKError) {
+      console.error(`[getCollaborativeFilters] Error fetching collaborative filters for user ${userId}:`, topKError);
       throw new Error(`Failed to fetch collaborative filters: ${topKError.message}`);
     }
 
 
-    const seen = new Set<number>();
     const films: { film_id: number; rating: number; film_name: string; genre_ids: number[] }[] = [];
     for (const friendId of topKData) {
       const { data: friendFilms, error: friendFilmsError } = await supabaseClient
@@ -101,22 +100,20 @@ export const getCollaborativeFilters = async ({
         .gte("rating", 4)
         .limit(20);
 
-      if (friendFilmsError || !friendFilms) continue;
-
-      for (const film of friendFilms) {
-        if (!seen.has(film.film_id)) {
-          seen.add(film.film_id);
-          films.push(film);
-        }
+      if (friendFilmsError || !friendFilms) {
+        console.error(`[getCollaborativeFilters] Error fetching top-rated films for friend ${friendId}:`, friendFilmsError);
+        continue;
       }
+      films.push(...friendFilms);
     }
+    
     console.log(
       `[getCollaborativeFilters] Successfully fetched ${films.length} collaborative filters`,
     );
     return films;
   } catch (err) {
     console.error(`[getCollaborativeFilters] Exception:`, err);
-    throw err;
+    throw new Error("Internal Server Error")
   }
 };
 
@@ -187,21 +184,30 @@ export const getInitialFeed = async ({
     const offsetCount = (page - 1) * RPC_BATCH_SIZE;
     const isFirstPage = page === 1;
 
-    const [recommendedFilms, popularData, airingData] = await Promise.all([
+    const [recommendedFilms, collaborativeFilms, popularData, airingData] = await Promise.all([
       getRecommendedFilms({
         supabaseClient,
         userId,
         limitCount: RPC_BATCH_SIZE,
         offsetCount,
       }),
+      getCollaborativeFilters({ supabaseClient, userId }),
       ...(isFirstPage ? [getPopularDramas(), getAiringDramas()] : []),
     ]);
 
     console.log(
-      `[getInitialFeed] RPC returned ${recommendedFilms.length} films`,
+      `[getInitialFeed] RPC returned ${recommendedFilms.length} films, collaborative returned ${collaborativeFilms.length} films`,
     );
 
     const data = recommendedFilms;
+
+    const standardizedCollaborative = collaborativeFilms.map((item) => ({
+      tmdb_id: item.film_id,
+      title: item.film_name,
+      release_year: "",
+      genre_ids: item.genre_ids || [],
+      similarity: item.rating / 5,
+    }));
 
     const standardizedPopular = isFirstPage
       ? (popularData.results || []).map((item: any) => ({
@@ -230,6 +236,7 @@ export const getInitialFeed = async ({
     const seen = new Set<number>();
     const combined = [
       ...data,
+      ...standardizedCollaborative,
       ...standardizedPopular,
       ...standardizedAiring,
     ].filter((item: any) => {
@@ -242,7 +249,7 @@ export const getInitialFeed = async ({
     const films = applyMMR(combined as FilmType[], pageSize, MMR_LAMBDA);
     const hasMore = data.length >= RPC_BATCH_SIZE;
     console.log(
-      `[getInitialFeed] page=${page}, returned=${films.length}, hasMore=${hasMore} (candidates: ${combined.length}, personalized: ${data.length}, popular: ${standardizedPopular.length}, airing: ${standardizedAiring.length})`,
+      `[getInitialFeed] page=${page}, returned=${films.length}, hasMore=${hasMore} (candidates: ${combined.length}, personalized: ${data.length}, collaborative: ${standardizedCollaborative.length}, popular: ${standardizedPopular.length}, airing: ${standardizedAiring.length})`,
     );
 
     return { films, page, pageSize, hasMore };
