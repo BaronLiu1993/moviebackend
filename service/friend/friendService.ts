@@ -1,9 +1,3 @@
-/**
- * Friend management service layer.
- * Handles friend requests (send/accept/reject), fetches followers/following, and friend profiles.
- * Request operations return boolean: true if successful, false if invalid or failed.
- */
-
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 

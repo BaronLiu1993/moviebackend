@@ -41,7 +41,7 @@ def blend(interest, behavioral, rating_count):
     alpha = 1.0 / (1.0 + rating_count)
     return alpha * interest + (1.0 - alpha) * behavioral
 
-
+# Updating the user vector
 def main():
     data = json.loads(sys.stdin.read())
     operation = data["operation"]
@@ -90,7 +90,3 @@ def main():
     }
 
     json.dump(result, sys.stdout)
-
-
-if __name__ == "__main__":
-    main()

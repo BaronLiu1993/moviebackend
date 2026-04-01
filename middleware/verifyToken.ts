@@ -1,14 +1,6 @@
 import { type Request, type Response, type NextFunction } from "express";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-declare module "express-serve-static-core" {
-  interface Request {
-    user?: { sub: string; email?: string; [key: string]: unknown };
-    token?: string;
-    supabaseClient?: SupabaseClient;
-  }
-}
-
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY!;
 

@@ -1,14 +1,8 @@
-/*
- * It combines Supabase RPCs and tables with OpenAI embeddings
- * and TMDB metadata to manage personalized film recommendations.
-*/
-
 import { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 import { handleRating } from "../analytics/analyticsService.js";
 import updateEmbeddingQueue from "../../queue/updateEmbedding/updateEmbeddingQueue.js";
 
-// types
 type SelectRatingType = { 
   supabaseClient: SupabaseClient; 
   userId: UUID 
@@ -140,7 +134,6 @@ export const updateRating = async ({
   accessToken,
   newNote,
 }: UpdateRatingType) => {
-  // Verify rating belongs to user and fetch film_id + old rating for incremental update
   const { data: ratingData, error: fetchError } = await supabaseClient
     .from("Ratings")
     .select("user_id, tmdb_id, rating")
