@@ -7,7 +7,7 @@ dev: node_modules
 	npm run dev
 
 test: node_modules
-	npx vitest run
+	NODE_OPTIONS='--experimental-vm-modules' npx jest
 
 build: node_modules
 	npm run build
