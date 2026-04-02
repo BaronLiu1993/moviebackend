@@ -1,3 +1,5 @@
+import { jest, describe, it, expect, beforeEach } from "@jest/globals";
+
 process.env["OPENAI_API_KEY"] = "test-key";
 
 const mockSignUp = jest.fn();
@@ -5,25 +7,25 @@ const mockSignIn = jest.fn();
 const mockEmbeddingsCreate = jest.fn();
 const mockSupabaseFrom = jest.fn();
 
-jest.mock("../service/supabase/configureSupabase.js", () => ({
+jest.unstable_mockModule("../service/supabase/configureSupabase.js", () => ({
   createSignInSupabase: () => ({
     auth: { signUp: mockSignUp, signInWithPassword: mockSignIn },
   }),
   createSupabaseClient: () => ({ from: mockSupabaseFrom }),
 }));
 
-jest.mock("../service/tmdb/tmdbService.js", () => ({
-  fetchTmdbOverview: jest.fn().mockResolvedValue({ title: "Test Drama", overview: "A test overview" }),
-  fetchTmdbKeywords: jest.fn().mockResolvedValue(["drama", "romance"]),
+jest.unstable_mockModule("../service/tmdb/tmdbService.js", () => ({
+  fetchTmdbOverview: jest.fn<any>().mockResolvedValue({ title: "Test Drama", overview: "A test overview" }),
+  fetchTmdbKeywords: jest.fn<any>().mockResolvedValue(["drama", "romance"]),
 }));
 
-jest.mock("openai", () => ({
+jest.unstable_mockModule("openai", () => ({
   default: class {
     embeddings = { create: mockEmbeddingsCreate };
   },
 }));
 
-import { signUpUser, loginUser, registerUser } from "../service/auth/authService.js";
+const { signUpUser, loginUser, registerUser } = await import("../service/auth/authService.js");
 
 beforeEach(() => {
   jest.clearAllMocks();

@@ -1,12 +1,14 @@
+import { jest, describe, it, expect, beforeEach } from "@jest/globals";
+
 const mockInsert = jest.fn();
 
-jest.mock("@clickhouse/client", () => ({
+jest.unstable_mockModule("@clickhouse/client", () => ({
   createClient: () => ({
     insert: mockInsert,
   }),
 }));
 
-import { insertInteractionEvents, insertImpressionEvent } from "../service/clickhouse/clickhouseService.js";
+const { insertInteractionEvents, insertImpressionEvent } = await import("../service/clickhouse/clickhouseService.js");
 
 beforeEach(() => {
   jest.clearAllMocks();

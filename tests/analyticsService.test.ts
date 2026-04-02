@@ -1,10 +1,12 @@
-jest.mock("../service/clickhouse/clickhouseService.js", () => ({
+import { jest, describe, it, expect, beforeEach } from "@jest/globals";
+
+jest.unstable_mockModule("../service/clickhouse/clickhouseService.js", () => ({
   insertInteractionEvents: jest.fn(),
   insertImpressionEvent: jest.fn(),
 }));
 
-import { handleLike, handleRating, handleBookmark } from "../service/analytics/analyticsService.js";
-import { insertInteractionEvents } from "../service/clickhouse/clickhouseService.js";
+const { handleLike, handleRating, handleBookmark } = await import("../service/analytics/analyticsService.js");
+const { insertInteractionEvents } = await import("../service/clickhouse/clickhouseService.js");
 
 const userId = "user-abc" as any;
 const tmdbId = 42;

@@ -1,15 +1,25 @@
-import { selectRatings, insertRating, deleteRating, updateRating } from "../service/rate/rateService.js";
+import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 
-jest.mock("../service/analytics/analyticsService.js", () => ({
+jest.unstable_mockModule("../service/analytics/analyticsService.js", () => ({
   handleRating: jest.fn(),
+  handleBookmark: jest.fn(),
+  handleLike: jest.fn(),
+  handleClick: jest.fn(),
+  handleFeed: jest.fn(),
 }));
 
-jest.mock("../queue/updateEmbedding/updateEmbeddingQueue.js", () => ({
+jest.unstable_mockModule("../service/clickhouse/clickhouseService.js", () => ({
+  insertInteractionEvents: jest.fn(),
+  insertImpressionEvent: jest.fn(),
+}));
+
+jest.unstable_mockModule("../queue/updateEmbedding/updateEmbeddingQueue.js", () => ({
   default: { add: jest.fn() },
 }));
 
-import { handleRating } from "../service/analytics/analyticsService.js";
-import updateEmbeddingQueue from "../queue/updateEmbedding/updateEmbeddingQueue.js";
+const { handleRating } = await import("../service/analytics/analyticsService.js");
+const { default: updateEmbeddingQueue } = await import("../queue/updateEmbedding/updateEmbeddingQueue.js");
+const { selectRatings, insertRating, deleteRating, updateRating } = await import("../service/rate/rateService.js");
 
 const mockFrom = jest.fn();
 const supabaseClient = { from: mockFrom } as any;

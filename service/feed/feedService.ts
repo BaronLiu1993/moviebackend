@@ -170,94 +170,6 @@ const applyMMR = (
   return selected;
 };
 
-//Generate feed for users precompute -> cache -> fetch from cache (Redis) -> fallback to real-time computation if cache miss
-
-// Returns personalized film recommendations based on user embeddings, with pagination support
-export const getInitialFeed = async ({
-  supabaseClient,
-  userId,
-  page = 1,
-  pageSize = 20,
-}: GetFeedRequestType): Promise<GetFeedResponseType> => {
-  try {
-    const RPC_BATCH_SIZE = 300;
-    const offsetCount = (page - 1) * RPC_BATCH_SIZE;
-    const isFirstPage = page === 1;
-
-    const [recommendedFilms, collaborativeFilms, popularData, airingData] = await Promise.all([
-      getRecommendedFilms({
-        supabaseClient,
-        userId,
-        limitCount: RPC_BATCH_SIZE,
-        offsetCount,
-      }),
-      getCollaborativeFilters({ supabaseClient, userId }),
-      ...(isFirstPage ? [getPopularDramas(), getAiringDramas()] : []),
-    ]);
-
-    console.log(
-      `[getInitialFeed] RPC returned ${recommendedFilms.length} films, collaborative returned ${collaborativeFilms.length} films`,
-    );
-
-    const data = recommendedFilms;
-
-    const standardizedCollaborative = collaborativeFilms.map((item) => ({
-      tmdb_id: item.film_id,
-      title: item.film_name,
-      release_year: "",
-      genre_ids: item.genre_ids || [],
-      similarity: item.rating / 5,
-    }));
-
-    const standardizedPopular = isFirstPage
-      ? (popularData.results || []).map((item: any) => ({
-          tmdb_id: item.id,
-          title: item.name,
-          release_year: item.first_air_date?.split("-")[0] || null,
-          genre_ids: item.genre_ids || [],
-          photo_url: item.poster_path
-            ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
-            : null, // Make it default to placeholder
-        }))
-      : [];
-
-    const standardizedAiring = isFirstPage
-      ? (airingData.results || []).map((item: any) => ({
-          tmdb_id: item.id,
-          title: item.name,
-          release_year: item.first_air_date?.split("-")[0] || null,
-          genre_ids: item.genre_ids || [],
-          photo_url: item.poster_path
-            ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
-            : null,
-        }))
-      : [];
-
-    const seen = new Set<number>();
-    const combined = [
-      ...data,
-      ...standardizedCollaborative,
-      ...standardizedPopular,
-      ...standardizedAiring,
-    ].filter((item: any) => {
-      if ((item.tags || []).includes(99)) return false;
-      if (seen.has(item.tmdb_id)) return false;
-      seen.add(item.tmdb_id);
-      return true;
-    });
-
-    const films = applyMMR(combined as FilmType[], pageSize, MMR_LAMBDA);
-    const hasMore = data.length >= RPC_BATCH_SIZE;
-    console.log(
-      `[getInitialFeed] page=${page}, returned=${films.length}, hasMore=${hasMore} (candidates: ${combined.length}, personalized: ${data.length}, collaborative: ${standardizedCollaborative.length}, popular: ${standardizedPopular.length}, airing: ${standardizedAiring.length})`,
-    );
-
-    return { films, page, pageSize, hasMore };
-  } catch (err) {
-    console.error(`[getInitialFeed] Exception:`, err);
-    throw new Error(`Failed to generate feed: ${err instanceof Error ? err.message : String(err)}`);
-  }
-};
 
 // Fetches currently airing Korean dramas from TMDB
 export const getAiringDramas = async () => {
@@ -345,5 +257,95 @@ export const getPopularDramas = async () => {
   } catch (err) {
     console.error(`[getPopularKoreanDramas] Exception:`, err);
     throw new Error(`Failed to fetch popular Korean dramas: ${err instanceof Error ? err.message : String(err)}`);
+  }
+};
+
+
+//Generate feed for users precompute -> cache -> fetch from cache (Redis) -> fallback to real-time computation if cache miss (TTL and randomise it to prevent cache stampedes)
+
+// Returns personalized film recommendations based on user embeddings, with pagination support
+export const getInitialFeed = async ({
+  supabaseClient,
+  userId,
+  page = 1,
+  pageSize = 20,
+}: GetFeedRequestType): Promise<GetFeedResponseType> => {
+  try {
+    const RPC_BATCH_SIZE = 300;
+    const offsetCount = (page - 1) * RPC_BATCH_SIZE;
+    const isFirstPage = page === 1;
+
+    const [recommendedFilms, collaborativeFilms, popularData, airingData] = await Promise.all([
+      getRecommendedFilms({
+        supabaseClient,
+        userId,
+        limitCount: RPC_BATCH_SIZE,
+        offsetCount,
+      }),
+      getCollaborativeFilters({ supabaseClient, userId }),
+      ...(isFirstPage ? [getPopularDramas(), getAiringDramas()] : []),
+    ]);
+
+    console.log(
+      `[getInitialFeed] RPC returned ${recommendedFilms.length} films, collaborative returned ${collaborativeFilms.length} films`,
+    );
+
+    const data = recommendedFilms;
+
+    const standardizedCollaborative = collaborativeFilms.map((item) => ({
+      tmdb_id: item.film_id,
+      title: item.film_name,
+      release_year: "",
+      genre_ids: item.genre_ids || [],
+      similarity: item.rating / 5,
+    }));
+
+    const standardizedPopular = isFirstPage
+      ? (popularData.results || []).map((item: any) => ({
+          tmdb_id: item.id,
+          title: item.name,
+          release_year: item.first_air_date?.split("-")[0] || null,
+          genre_ids: item.genre_ids || [],
+          photo_url: item.poster_path
+            ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+            : null, // Make it default to placeholder
+        }))
+      : [];
+
+    const standardizedAiring = isFirstPage
+      ? (airingData.results || []).map((item: any) => ({
+          tmdb_id: item.id,
+          title: item.name,
+          release_year: item.first_air_date?.split("-")[0] || null,
+          genre_ids: item.genre_ids || [],
+          photo_url: item.poster_path
+            ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+            : null,
+        }))
+      : [];
+
+    const seen = new Set<number>();
+    const combined = [
+      ...data,
+      ...standardizedCollaborative,
+      ...standardizedPopular,
+      ...standardizedAiring,
+    ].filter((item: any) => {
+      if ((item.tags || []).includes(99)) return false;
+      if (seen.has(item.tmdb_id)) return false;
+      seen.add(item.tmdb_id);
+      return true;
+    });
+
+    const films = applyMMR(combined as FilmType[], pageSize, MMR_LAMBDA);
+    const hasMore = data.length >= RPC_BATCH_SIZE;
+    console.log(
+      `[getInitialFeed] page=${page}, returned=${films.length}, hasMore=${hasMore} (candidates: ${combined.length}, personalized: ${data.length}, collaborative: ${standardizedCollaborative.length}, popular: ${standardizedPopular.length}, airing: ${standardizedAiring.length})`,
+    );
+
+    return { films, page, pageSize, hasMore };
+  } catch (err) {
+    console.error(`[getInitialFeed] Exception:`, err);
+    throw new Error(`Failed to generate feed: ${err instanceof Error ? err.message : String(err)}`);
   }
 };

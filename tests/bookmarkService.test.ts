@@ -1,9 +1,11 @@
-jest.mock("../service/analytics/analyticsService.js", () => ({
+import { jest, describe, it, expect, beforeEach } from "@jest/globals";
+
+jest.unstable_mockModule("../service/analytics/analyticsService.js", () => ({
   handleBookmark: jest.fn(),
 }));
 
-import { selectBookmarkFilms, bookmarkFilm, removeBookmark } from "../service/bookmark/bookmarkService.js";
-import { handleBookmark } from "../service/analytics/analyticsService.js";
+const { selectBookmarkFilms, bookmarkFilm, removeBookmark } = await import("../service/bookmark/bookmarkService.js");
+const { handleBookmark } = await import("../service/analytics/analyticsService.js");
 
 const mockFrom = jest.fn();
 const supabaseClient = { from: mockFrom } as any;

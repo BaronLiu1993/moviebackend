@@ -1,4 +1,6 @@
-const mockFetch = jest.fn();
+import { jest, describe, it, expect, beforeEach } from "@jest/globals";
+
+const mockFetch = jest.fn() as jest.Mock;
 global.fetch = mockFetch as any;
 
 import {
@@ -28,8 +30,8 @@ describe("getAiringDramas", () => {
     const result = await getAiringDramas();
 
     expect(result).toEqual(tmdbData);
-    expect(mockFetch.mock.calls[0]![0]).toContain("/3/discover/tv");
-    expect(mockFetch.mock.calls[0]![0]).toContain("with_origin_country=KR");
+    expect((mockFetch.mock.calls[0] as any[])[0]).toContain("/3/discover/tv");
+    expect((mockFetch.mock.calls[0] as any[])[0]).toContain("with_origin_country=KR");
   });
 
   it("throws on TMDB API error", async () => {
@@ -50,7 +52,7 @@ describe("getPopularDramas", () => {
     const result = await getPopularDramas();
 
     expect(result).toEqual(tmdbData);
-    expect(mockFetch.mock.calls[0]![0]).toContain("sort_by=popularity.desc");
+    expect((mockFetch.mock.calls[0] as any[])[0]).toContain("sort_by=popularity.desc");
   });
 
   it("throws on TMDB API error", async () => {

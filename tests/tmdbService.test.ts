@@ -1,4 +1,6 @@
-const mockFetch = jest.fn();
+import { jest, describe, it, expect, beforeEach } from "@jest/globals";
+
+const mockFetch = jest.fn() as jest.Mock;
 global.fetch = mockFetch as any;
 
 import { fetchTmdbOverview, fetchTmdbKeywords } from "../service/tmdb/tmdbService.js";
@@ -18,7 +20,7 @@ describe("fetchTmdbOverview", () => {
 
     expect(result).toEqual({ title: "Squid Game", overview: "A survival drama" });
     expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(mockFetch.mock.calls[0]![0]).toContain("/3/tv/1234");
+    expect((mockFetch.mock.calls[0] as any[])[0]).toContain("/3/tv/1234");
   });
 
   it("falls back to movie endpoint when TV fails", async () => {
@@ -33,7 +35,7 @@ describe("fetchTmdbOverview", () => {
 
     expect(result).toEqual({ title: "Parasite", overview: "A dark comedy" });
     expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(mockFetch.mock.calls[1]![0]).toContain("/3/movie/5678");
+    expect((mockFetch.mock.calls[1] as any[])[0]).toContain("/3/movie/5678");
   });
 
   it("throws when both endpoints fail", async () => {
