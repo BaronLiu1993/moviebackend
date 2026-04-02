@@ -1,6 +1,6 @@
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 
-const mockInsert = jest.fn();
+const mockInsert = jest.fn<(...args: any[]) => any>();
 
 jest.unstable_mockModule("@clickhouse/client", () => ({
   createClient: () => ({
@@ -15,7 +15,7 @@ beforeEach(() => {
 });
 
 describe("insertInteractionEvents", () => {
-  it("inserts an interaction row into clickhouse", async () => {
+  it("inserts an interaction row with timestamp into clickhouse", async () => {
     mockInsert.mockResolvedValueOnce(undefined);
 
     await insertInteractionEvents({
@@ -30,14 +30,15 @@ describe("insertInteractionEvents", () => {
     expect(mockInsert).toHaveBeenCalledWith({
       table: "interactions",
       values: [
-        {
+        expect.objectContaining({
           user_id: "u1",
           tmdb_id: 42,
           interaction_type: "like",
           rating: 0,
           genre_ids: [18],
           film_name: "Drama X",
-        },
+          created_at: expect.any(Date),
+        }),
       ],
       format: "JSONEachRow",
     });
@@ -58,7 +59,7 @@ describe("insertInteractionEvents", () => {
 });
 
 describe("insertImpressionEvent", () => {
-  it("inserts an impression row into clickhouse", async () => {
+  it("inserts an impression row with timestamp into clickhouse", async () => {
     mockInsert.mockResolvedValueOnce(undefined);
 
     await insertImpressionEvent({
@@ -74,7 +75,7 @@ describe("insertImpressionEvent", () => {
     expect(mockInsert).toHaveBeenCalledWith({
       table: "impressions",
       values: [
-        {
+        expect.objectContaining({
           user_id: "u1",
           tmdb_id: 42,
           session_id: "sess-1",
@@ -82,7 +83,8 @@ describe("insertImpressionEvent", () => {
           surface: "feed",
           genre_ids: [18],
           film_name: "Drama Y",
-        },
+          created_at: expect.any(Date),
+        }),
       ],
       format: "JSONEachRow",
     });

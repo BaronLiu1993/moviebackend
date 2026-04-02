@@ -1,13 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 
-jest.unstable_mockModule("../service/analytics/analyticsService.js", () => ({
-  handleRating: jest.fn(),
-  handleBookmark: jest.fn(),
-  handleLike: jest.fn(),
-  handleClick: jest.fn(),
-  handleFeed: jest.fn(),
-}));
-
 jest.unstable_mockModule("../service/clickhouse/clickhouseService.js", () => ({
   insertInteractionEvents: jest.fn(),
   insertImpressionEvent: jest.fn(),
@@ -17,7 +9,7 @@ jest.unstable_mockModule("../queue/updateEmbedding/updateEmbeddingQueue.js", () 
   default: { add: jest.fn() },
 }));
 
-const { handleRating } = await import("../service/analytics/analyticsService.js");
+const { insertInteractionEvents } = await import("../service/clickhouse/clickhouseService.js");
 const { default: updateEmbeddingQueue } = await import("../queue/updateEmbedding/updateEmbeddingQueue.js");
 const { selectRatings, insertRating, deleteRating, updateRating } = await import("../service/rate/rateService.js");
 
@@ -86,8 +78,8 @@ describe("insertRating", () => {
       rating: 4,
       tmdb_id: 12345,
     }));
-    expect(handleRating).toHaveBeenCalledWith({
-      userId, tmdbId: 12345, rating: 4, film_name: "My Drama", genre_ids: [18, 10759],
+    expect(insertInteractionEvents).toHaveBeenCalledWith({
+      userId, tmdbId: 12345, interactionType: "rating", rating: 4, film_name: "My Drama", genre_ids: [18, 10759],
     });
     expect(updateEmbeddingQueue.add).toHaveBeenCalledWith("recompute", {
       userId, accessToken, operation: "insert", tmdbId: 12345, rating: 4,
@@ -139,7 +131,7 @@ describe("deleteRating", () => {
 
     await deleteRating({ ratingId, userId, supabaseClient, accessToken });
 
-    expect(handleRating).toHaveBeenCalledWith({ userId, tmdbId: 999, rating: 0 });
+    expect(insertInteractionEvents).toHaveBeenCalledWith({ userId, tmdbId: 999, interactionType: "rating", rating: 0 });
     expect(updateEmbeddingQueue.add).toHaveBeenCalledWith("recompute", {
       userId, accessToken, operation: "delete", tmdbId: 999, rating: 3,
     });
@@ -190,7 +182,7 @@ describe("updateRating", () => {
     });
 
     expect(updateFn).toHaveBeenCalledWith({ rating: 5, note: "Updated note" });
-    expect(handleRating).toHaveBeenCalledWith({ userId, tmdbId: 555, rating: 5 });
+    expect(insertInteractionEvents).toHaveBeenCalledWith({ userId, tmdbId: 555, interactionType: "rating", rating: 5 });
     expect(updateEmbeddingQueue.add).toHaveBeenCalledWith("recompute", {
       userId, accessToken, operation: "update", tmdbId: 555, rating: 5, oldRating: 2,
     });

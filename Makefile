@@ -1,4 +1,4 @@
-.PHONY: dev test build
+.PHONY: dev test build train
 
 COMPOSE := docker compose
 
@@ -11,6 +11,9 @@ test: node_modules
 
 build: node_modules
 	npm run build
+
+train:
+	python3 ranking/training/train.py
 
 node_modules: package.json package-lock.json
 	npm ci

@@ -26,6 +26,7 @@ services:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-02NpT3Nc}
     volumes:
       - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]

@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
-import { handleRating } from "../analytics/analyticsService.js";
+import { insertInteractionEvents } from "../clickhouse/clickhouseService.js";
 import updateEmbeddingQueue from "../../queue/updateEmbedding/updateEmbeddingQueue.js";
 
 type SelectRatingType = { 
@@ -88,8 +88,7 @@ export const insertRating = async ({
 
   console.log(insertError)
   if (insertError) throw new Error("Failed to insert rating");
-  await handleRating({ userId, tmdbId, rating, film_name: name, genre_ids });
-  console.log("[rateService] handleRating called for", { userId, tmdbId, rating });
+  await insertInteractionEvents({ userId, tmdbId, interactionType: "rating", rating, film_name: name, genre_ids });
   await updateEmbeddingQueue.add('recompute', { userId, accessToken, operation: 'insert', tmdbId, rating });
 };
 
@@ -116,7 +115,7 @@ export const deleteRating = async ({
 
   if (deleteError) throw new Error("Failed to delete rating");
 
-  await handleRating({ userId, tmdbId: ratingData.tmdb_id, rating: 0 });
+  await insertInteractionEvents({ userId, tmdbId: ratingData.tmdb_id, interactionType: "rating", rating: 0 });
   await updateEmbeddingQueue.add('recompute', {
     userId,
     accessToken,
@@ -151,7 +150,7 @@ export const updateRating = async ({
 
   if (updateError) throw new Error("Failed to update rating");
 
-  await handleRating({ userId, tmdbId: ratingData.tmdb_id, rating: newRating });
+  await insertInteractionEvents({ userId, tmdbId: ratingData.tmdb_id, interactionType: "rating", rating: newRating });
   await updateEmbeddingQueue.add('recompute', {
     userId,
     accessToken,

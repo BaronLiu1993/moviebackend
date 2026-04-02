@@ -1,11 +1,12 @@
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 
-jest.unstable_mockModule("../service/analytics/analyticsService.js", () => ({
-  handleBookmark: jest.fn(),
+jest.unstable_mockModule("../service/clickhouse/clickhouseService.js", () => ({
+  insertInteractionEvents: jest.fn(),
+  insertImpressionEvent: jest.fn(),
 }));
 
 const { selectBookmarkFilms, bookmarkFilm, removeBookmark } = await import("../service/bookmark/bookmarkService.js");
-const { handleBookmark } = await import("../service/analytics/analyticsService.js");
+const { insertInteractionEvents } = await import("../service/clickhouse/clickhouseService.js");
 
 const mockFrom = jest.fn();
 const supabaseClient = { from: mockFrom } as any;
@@ -58,7 +59,9 @@ describe("bookmarkFilm", () => {
       title: "My Drama",
       genre: ["drama"],
     });
-    expect(handleBookmark).toHaveBeenCalledWith({ userId, tmdbId: 42, film_name: "My Drama" });
+    expect(insertInteractionEvents).toHaveBeenCalledWith({
+      userId, tmdbId: 42, interactionType: "bookmark", film_name: "My Drama", rating: 0,
+    });
   });
 
   it("throws on insert error", async () => {
