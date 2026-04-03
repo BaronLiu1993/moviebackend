@@ -8,9 +8,9 @@ export const likeRequestSchema = z.object({
 });
 
 const impressionSchema = z.object({
-    userId: z.string().uuid(),
+    userId: z.uuid(),
     tmdbId: z.number().int(),
-    sessionId: z.string().uuid(),
+    sessionId: z.uuid(),
     position: z.number().int(),
     surface: z.string().min(1),
     film_name: z.string().optional(),

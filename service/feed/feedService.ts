@@ -51,6 +51,66 @@ type GetFeedResponseType = {
   hasMore: boolean;
 };
 
+type removeLikeFilmType = {
+  supabaseClient: SupabaseClient;
+  userId: UUID;
+  tmdbId: number;
+};
+
+type addLikeFilmType = {
+  supabaseClient: SupabaseClient;
+  userId: UUID;
+  tmdbId: number;
+  film_name: string;
+  genre_ids: number[];
+};
+
+export const removeLikeFilm = async ({supabaseClient, userId, tmdbId}: removeLikeFilmType) => {
+  try {
+    const { error: removeLikeFilmError } = await supabaseClient
+      .from("Likes")
+      .delete()
+      .eq("interaction_type", "like")
+      .eq("user_id", userId)
+      .eq("tmdb_id", tmdbId);
+
+    if (removeLikeFilmError) {
+      console.error(`[removeLikeFilm] Error removing like interaction for user ${userId} and film ${tmdbId}:`, removeLikeFilmError);
+      throw new Error(`Failed to remove like interaction: ${removeLikeFilmError.message}`);
+    }
+
+    console.log(`[removeLikeFilm] Successfully removed like interaction for user ${userId} and film ${tmdbId}`);
+  } catch (err) {
+    console.error(`[removeLikeFilm] Exception:`, err);
+    throw new Error("Internal Server Error");
+  }
+}
+
+export const addLikeFilm = async ({supabaseClient, userId, tmdbId, film_name, genre_ids}: addLikeFilmType) => {
+  try {
+    const { error: addLikeFilmError } = await supabaseClient
+      .from("Likes")
+      .insert({
+        user_id: userId,
+        tmdb_id: tmdbId,
+        interaction_type: "like",
+        film_name,
+        genre_ids,
+        rating: 4,
+      });
+
+    if (addLikeFilmError) {
+      console.error(`[addLikeFilm] Error adding like interaction for user ${userId} and film ${tmdbId}:`, addLikeFilmError);
+      throw new Error(`Failed to add like interaction: ${addLikeFilmError.message}`);
+    }
+
+    console.log(`[addLikeFilm] Successfully added like interaction for user ${userId} and film ${tmdbId}`);
+  } catch (err) {
+    console.error(`[addLikeFilm] Exception:`, err);
+    throw new Error("Internal Server Error");
+  }
+}
+
 const getRecommendedFilms = async ({
   supabaseClient,
   userId,
@@ -69,6 +129,7 @@ const getRecommendedFilms = async ({
 
   return (data ?? []) as RecommendedFilmType[];
 };
+
 
 export const getCollaborativeFilters = async ({
   supabaseClient,
@@ -308,7 +369,7 @@ export const getInitialFeed = async ({
           genre_ids: item.genre_ids || [],
           photo_url: item.poster_path
             ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
-            : null, // Make it default to placeholder
+            : null, 
         }))
       : [];
 

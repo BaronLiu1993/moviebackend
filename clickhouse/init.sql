@@ -14,7 +14,6 @@ PARTITION BY toYYYYMM(created_at)
 ORDER BY (user_id, tmdb_id, created_at)
 TTL created_at + INTERVAL 12 MONTH;
 
--- Raw impression events (films shown to users in feed)
 CREATE TABLE IF NOT EXISTS impressions (
   user_id     String,
   tmdb_id     UInt32,
@@ -29,7 +28,6 @@ PARTITION BY toYYYYMM(created_at)
 ORDER BY (user_id, created_at, tmdb_id)
 TTL created_at + INTERVAL 12 MONTH;
 
--- Materialized view: pre-aggregated user-level features
 CREATE MATERIALIZED VIEW IF NOT EXISTS user_features_mv
 ENGINE = AggregatingMergeTree()
 ORDER BY user_id
@@ -43,7 +41,6 @@ AS SELECT
 FROM interactions
 GROUP BY user_id;
 
--- Materialized view: pre-aggregated film-level features
 CREATE MATERIALIZED VIEW IF NOT EXISTS film_features_mv
 ENGINE = AggregatingMergeTree()
 ORDER BY tmdb_id

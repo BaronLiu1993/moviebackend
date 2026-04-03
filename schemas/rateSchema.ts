@@ -1,7 +1,5 @@
 import * as z from "zod";
 
-// Enforce Schemas for Request and Response
-
 export const insertRatingRequestSchema = z.object({
   tmdbId: z.number().int(),
   rating: z.number().int().min(1).max(5),
@@ -28,7 +26,19 @@ export const ratingResponseSchema = z.object({
   genre_ids: z.array(z.number()),
 });
 
+export const likeRequestSchema = z.object({
+  tmdbId: z.number().int(),
+  film_name: z.string().min(1),
+  genre_ids: z.array(z.number().int()),
+});
+
+export const unlikeRequestSchema = z.object({
+  tmdbId: z.number().int(),
+});
+
 export type InsertRatingInput = z.infer<typeof insertRatingRequestSchema>;
 export type UpdateRatingInput = z.infer<typeof updateRatingRequestSchema>;
 export type DeleteRatingInput = z.infer<typeof deleteRatingRequestSchema>;
 export type RatingResponse = z.infer<typeof ratingResponseSchema>;
+export type LikeRequest = z.infer<typeof likeRequestSchema>;
+export type UnlikeRequest = z.infer<typeof unlikeRequestSchema>;

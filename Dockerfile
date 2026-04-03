@@ -20,7 +20,7 @@ RUN apk add --no-cache python3 py3-pip dumb-init gcc g++ musl-dev
 # Create venv and install Python dependencies
 RUN python3 -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
-RUN pip install numpy pandas lightgbm
+RUN pip install numpy pandas xgboost scikit-learn
 
 # Remove build tools to reduce image size
 RUN apk del gcc g++ musl-dev

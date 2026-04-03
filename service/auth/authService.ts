@@ -11,15 +11,7 @@ import type { UUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 dotenv.config();
-
-// config
-const SCOPES = "email,profile";
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
-
-if (!OPENAI_KEY) {
-  throw new Error("Missing OPENAI_API_KEY");
-}
-
 const openai = new OpenAI({ apiKey: OPENAI_KEY });
 
 // types

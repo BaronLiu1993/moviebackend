@@ -3,14 +3,15 @@ import { verifyToken } from "../../middleware/verifyToken.js";
 import { deleteRating, insertRating, selectRatings, updateRating } from "../../service/rate/rateService.js";
 import { validateInsertRating, validateUpdateRating } from "../../middleware/validateRating.js";
 import { validateZod } from "../../middleware/schemaValidation.js";
-import { insertRatingRequestSchema, updateRatingRequestSchema, deleteRatingRequestSchema } from "../../schemas/rateSchema.js";
+import { insertRatingRequestSchema, updateRatingRequestSchema, deleteRatingRequestSchema, likeRequestSchema, unlikeRequestSchema } from "../../schemas/rateSchema.js";
+import { addLikeFilm, removeLikeFilm } from "../../service/feed/feedService.js";
+import { insertInteractionEvents } from "../../service/clickhouse/clickhouseService.js";
 import type { UUID } from "node:crypto";
 
 const router = Router();
 
-router.post("/insert-ratings", verifyToken, validateZod(insertRatingRequestSchema), validateInsertRating, async (req, res) => {
+router.post("/ratings", verifyToken, validateZod(insertRatingRequestSchema), validateInsertRating, async (req, res) => {
   const { tmdbId, rating, note, name, genre_ids } = req.body;
-  console.log("Received insert rating request:", { tmdbId, rating, note, name, genre_ids });
   const userId = req.user?.sub as UUID;
   const accessToken = req.token!;
   const supabaseClient = req.supabaseClient!;
@@ -23,13 +24,13 @@ router.post("/insert-ratings", verifyToken, validateZod(insertRatingRequestSchem
   }
 });
 
-router.get("/select-ratings", verifyToken, async (req, res) => {
+router.get("/ratings", verifyToken, async (req, res) => {
   const userId = req.user?.sub as UUID;
-  console.log("test")
-  if (!userId || !req.supabaseClient) {
-    return res.status(400).json({ message: "Missing Inputs" });
-  }
   const supabaseClient = req.supabaseClient;
+
+  if (!userId || !supabaseClient) {
+    return res.status(401).json({ message: "Missing Supabase or UserID" });
+  }
 
   try {
     const ratings = await selectRatings({ userId, supabaseClient });
@@ -39,7 +40,7 @@ router.get("/select-ratings", verifyToken, async (req, res) => {
   }
 });
 
-router.delete("/delete-ratings", verifyToken, validateZod(deleteRatingRequestSchema), async (req, res) => {
+router.delete("/ratings", verifyToken, validateZod(deleteRatingRequestSchema), async (req, res) => {
   const userId = req.user?.sub as UUID;
   const { ratingId } = req.body;
   const supabaseClient = req.supabaseClient!;
@@ -52,7 +53,7 @@ router.delete("/delete-ratings", verifyToken, validateZod(deleteRatingRequestSch
   }
 });
 
-router.put("/update-ratings", verifyToken, validateZod(updateRatingRequestSchema), validateUpdateRating, async (req, res) => {
+router.put("/ratings", verifyToken, validateZod(updateRatingRequestSchema), validateUpdateRating, async (req, res) => {
   const userId = req.user?.sub as UUID;
   const { ratingId, newRating, newNote } = req.body;
   const supabaseClient = req.supabaseClient!;
@@ -62,6 +63,34 @@ router.put("/update-ratings", verifyToken, validateZod(updateRatingRequestSchema
     await updateRating({ ratingId, userId, newRating, supabaseClient, accessToken, newNote });
     return res.status(204).send();
   } catch (err) {
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+router.post("/like", verifyToken, validateZod(likeRequestSchema), async (req, res) => {
+  const userId = req.user?.sub as UUID;
+  const { tmdbId, film_name, genre_ids } = req.body;
+  const supabaseClient = req.supabaseClient!;
+
+  try {
+    await addLikeFilm({ supabaseClient, userId, tmdbId, film_name, genre_ids });
+    await insertInteractionEvents({ userId, tmdbId, interactionType: "like", film_name, genre_ids, rating: 0 });
+    return res.status(200).json({ message: "Like recorded" });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+router.delete("/like", verifyToken, validateZod(unlikeRequestSchema), async (req, res) => {
+  const userId = req.user?.sub as UUID;
+  const { tmdbId } = req.body;
+  const supabaseClient = req.supabaseClient!;
+  try {
+    await removeLikeFilm({ supabaseClient, userId, tmdbId });
+    return res.status(200).json({ message: "Like removed" });
+  } catch (err) {
+    console.error(err);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
