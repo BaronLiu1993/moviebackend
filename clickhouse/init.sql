@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS interactions (
   user_id           String,
   tmdb_id           UInt32,
-  interaction_type  Enum8('click'=1, 'like'=2, 'bookmark'=3, 'rating'=4),
+  interaction_type  Enum8('like'=1, 'bookmark'=2, 'rating'=3),
   rating            Float32   DEFAULT 0,
   genre_ids         Array(UInt32) DEFAULT [],
   film_name         String    DEFAULT '',

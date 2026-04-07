@@ -10,7 +10,7 @@ const client = createClient({
 interface Interaction {
   userId: string;
   tmdbId: number;
-  interactionType: "click" | "like" | "rating" | "bookmark";
+  interactionType: "like" | "rating" | "bookmark";
   rating?: number | undefined;
   genre_ids?: number[] | undefined;
   film_name?: string | undefined;
