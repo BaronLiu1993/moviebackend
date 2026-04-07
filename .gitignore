@@ -18,3 +18,9 @@ models/
 *.txt
 *.pkl
 *.joblib
+
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+.terraform.lock.hcl
