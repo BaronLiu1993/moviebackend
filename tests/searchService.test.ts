@@ -119,12 +119,16 @@ describe("searchFilms", () => {
     expect(mockRpc).toHaveBeenCalledWith("search_films_keyword", {
       search_query: "romance",
       filter_media_type: "tv",
+      filter_country: null,
+      filter_release_year: null,
       filter_genre_ids: [18, 35],
       result_limit: 100,
     });
     expect(mockRpc).toHaveBeenCalledWith("search_films_semantic", {
       query_embedding: mockEmbedding,
       filter_media_type: "tv",
+      filter_country: null,
+      filter_release_year: null,
       filter_genre_ids: [18, 35],
       result_limit: 100,
     });

@@ -5,6 +5,8 @@ export const searchQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(20),
   media_type: z.enum(["tv", "movie"]).optional(),
+  country: z.enum(["KR", "JP", "CN"]).optional(),
+  release_year: z.coerce.number().int().min(1900).max(2030).optional(),
   genre_ids: z
     .string()
     .optional()

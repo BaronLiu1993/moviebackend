@@ -16,6 +16,8 @@ type SearchParams = {
   page: number;
   pageSize: number;
   mediaType?: string | undefined;
+  country?: string | undefined;
+  releaseYear?: number | undefined;
   genreIds?: number[] | undefined;
 };
 
@@ -42,14 +44,22 @@ export const searchFilms = async ({
   page,
   pageSize,
   mediaType,
+  country,
+  releaseYear,
   genreIds,
 }: SearchParams): Promise<SearchResponse> => {
+  const sharedFilters = {
+    filter_media_type: mediaType ?? null,
+    filter_country: country ?? null,
+    filter_release_year: releaseYear?.toString() ?? null,
+    filter_genre_ids: genreIds ?? null,
+    result_limit: SEARCH_RPC_LIMIT,
+  };
+
   // Fire keyword search immediately (no embedding dependency)
   const keywordPromise = supabaseClient.rpc("search_films_keyword", {
     search_query: query,
-    filter_media_type: mediaType ?? null,
-    filter_genre_ids: genreIds ?? null,
-    result_limit: SEARCH_RPC_LIMIT,
+    ...sharedFilters,
   });
 
   // Generate embedding, then fire semantic search
@@ -57,9 +67,7 @@ export const searchFilms = async ({
 
   const semanticPromise = supabaseClient.rpc("search_films_semantic", {
     query_embedding: queryEmbedding,
-    filter_media_type: mediaType ?? null,
-    filter_genre_ids: genreIds ?? null,
-    result_limit: SEARCH_RPC_LIMIT,
+    ...sharedFilters,
   });
 
   // Await both

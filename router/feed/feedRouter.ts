@@ -65,7 +65,7 @@ router.get("/search", verifyToken, async (req, res) => {
     return res.status(400).json({ message: "Invalid query parameters" });
   }
 
-  const { q, page, pageSize, media_type, genre_ids } = parsed.data;
+  const { q, page, pageSize, media_type, country, release_year, genre_ids } = parsed.data;
 
   try {
     const response = await searchFilms({
@@ -74,6 +74,8 @@ router.get("/search", verifyToken, async (req, res) => {
       page,
       pageSize,
       mediaType: media_type,
+      country,
+      releaseYear: release_year,
       genreIds: genre_ids,
     });
     return res.status(200).json(response);
