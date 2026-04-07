@@ -101,8 +101,9 @@ const isAdultTitle = (film: TmdbResultType): boolean => {
 const hasRequiredData = (film: TmdbResultType): boolean => {
   const hasTitle = !!(film.name || film.title || film.original_name || film.original_title);
   const hasDate = !!(film.first_air_date || film.release_date);
+  const hasOverview = !!(film.overview && film.overview.trim().length > 0);
   const hasId = !!film.id;
-  return hasTitle && hasDate && hasId;
+  return hasTitle && hasDate && hasOverview && hasId;
 };
 
 const fetchAllFilms = async (country: string): Promise<TmdbResultType[]> => {
