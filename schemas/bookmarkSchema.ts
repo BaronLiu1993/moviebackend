@@ -4,6 +4,7 @@ export const bookmarkFilmRequestSchema = z.object({
   tmdbId: z.number().int(),
   title: z.string().min(1),
   genre_ids: z.array(z.number().int()),
+  poster_url: z.string().url(),
 });
 
 export const removeBookmarkRequestSchema = z.object({
