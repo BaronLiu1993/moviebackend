@@ -88,6 +88,9 @@ describe("removeBookmark", () => {
     await removeBookmark({ supabaseClient, userId, tmdbId: 42 });
 
     expect(mockFrom).toHaveBeenCalledWith("Bookmarks");
+    expect(insertInteractionEvents).toHaveBeenCalledWith({
+      userId, tmdbId: 42, interactionType: "bookmark", rating: 0,
+    });
   });
 
   it("throws on delete error", async () => {

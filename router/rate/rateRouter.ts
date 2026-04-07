@@ -88,6 +88,7 @@ router.delete("/like", verifyToken, validateZod(unlikeRequestSchema), async (req
   const supabaseClient = req.supabaseClient!;
   try {
     await removeLikeFilm({ supabaseClient, userId, tmdbId });
+    await insertInteractionEvents({ userId, tmdbId, interactionType: "like", rating: 0 });
     return res.status(200).json({ message: "Like removed" });
   } catch (err) {
     console.error(err);

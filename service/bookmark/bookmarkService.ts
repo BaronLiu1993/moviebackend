@@ -99,6 +99,8 @@ export const removeBookmark = async ({
       console.error(`[removeBookmark] Error removing bookmark ${tmdbId} for user ${userId}:`, error);
       throw new Error(`Failed to remove bookmark: ${error.message}`);
     }
+
+    await insertInteractionEvents({ userId, tmdbId, interactionType: "bookmark", rating: 0 });
   } catch (err) {
     console.error(`[removeBookmark] Exception:`, err);
     throw err;
