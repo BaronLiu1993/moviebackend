@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
+import { insertInteractionEvents } from "../clickhouse/clickhouseService.js";
 
 const TMDB_API_BASE = process.env.TMDB_API_BASE!;
 const TMDB_API_KEY = process.env.TMDB_API_KEY!;
@@ -58,13 +59,7 @@ type GetFeedResponseType = {
   hasMore: boolean;
 };
 
-type removeLikeFilmType = {
-  supabaseClient: SupabaseClient;
-  userId: UUID;
-  tmdbId: number;
-};
-
-type addLikeFilmType = {
+type LikeFilmType = {
   supabaseClient: SupabaseClient;
   userId: UUID;
   tmdbId: number;
@@ -72,51 +67,56 @@ type addLikeFilmType = {
   genre_ids: number[];
 };
 
-export const removeLikeFilm = async ({supabaseClient, userId, tmdbId}: removeLikeFilmType) => {
+type UnlikeFilmType = {
+  supabaseClient: SupabaseClient;
+  userId: UUID;
+  tmdbId: number;
+};
+
+export const likeFilm = async ({ supabaseClient, userId, tmdbId, film_name, genre_ids }: LikeFilmType) => {
   try {
-    const { error: removeLikeFilmError } = await supabaseClient
-      .from("Likes")
+    const { error: insertError } = await supabaseClient
+      .from("Film_Likes")
+      .insert({ tmdb_id: tmdbId, user_id: userId });
+
+    if (insertError) {
+      if (insertError.code === "23505") throw new Error("Already liked this film");
+      console.error(`[likeFilm] Error liking film ${tmdbId} for user ${userId}:`, insertError);
+      throw new Error(`Failed to like film: ${insertError.message}`);
+    }
+
+    // Increment like_count on Guanghai
+    await supabaseClient.rpc("increment_film_like_count", { p_tmdb_id: tmdbId });
+
+    await insertInteractionEvents({ userId, tmdbId, interactionType: "like", film_name, genre_ids, rating: 0 });
+  } catch (err) {
+    console.error(`[likeFilm] Exception:`, err);
+    throw err;
+  }
+};
+
+export const unlikeFilm = async ({ supabaseClient, userId, tmdbId }: UnlikeFilmType) => {
+  try {
+    const { error: deleteError } = await supabaseClient
+      .from("Film_Likes")
       .delete()
-      .eq("interaction_type", "like")
-      .eq("user_id", userId)
-      .eq("tmdb_id", tmdbId);
+      .eq("tmdb_id", tmdbId)
+      .eq("user_id", userId);
 
-    if (removeLikeFilmError) {
-      console.error(`[removeLikeFilm] Error removing like interaction for user ${userId} and film ${tmdbId}:`, removeLikeFilmError);
-      throw new Error(`Failed to remove like interaction: ${removeLikeFilmError.message}`);
+    if (deleteError) {
+      console.error(`[unlikeFilm] Error unliking film ${tmdbId} for user ${userId}:`, deleteError);
+      throw new Error(`Failed to unlike film: ${deleteError.message}`);
     }
 
-    console.log(`[removeLikeFilm] Successfully removed like interaction for user ${userId} and film ${tmdbId}`);
+    // Decrement like_count on Guanghai
+    await supabaseClient.rpc("decrement_film_like_count", { p_tmdb_id: tmdbId });
+
+    await insertInteractionEvents({ userId, tmdbId, interactionType: "like", rating: 0 });
   } catch (err) {
-    console.error(`[removeLikeFilm] Exception:`, err);
-    throw new Error("Internal Server Error");
+    console.error(`[unlikeFilm] Exception:`, err);
+    throw err;
   }
-}
-
-export const addLikeFilm = async ({supabaseClient, userId, tmdbId, film_name, genre_ids}: addLikeFilmType) => {
-  try {
-    const { error: addLikeFilmError } = await supabaseClient
-      .from("Likes")
-      .insert({
-        user_id: userId,
-        tmdb_id: tmdbId,
-        interaction_type: "like",
-        film_name,
-        genre_ids,
-        rating: 4,
-      });
-
-    if (addLikeFilmError) {
-      console.error(`[addLikeFilm] Error adding like interaction for user ${userId} and film ${tmdbId}:`, addLikeFilmError);
-      throw new Error(`Failed to add like interaction: ${addLikeFilmError.message}`);
-    }
-
-    console.log(`[addLikeFilm] Successfully added like interaction for user ${userId} and film ${tmdbId}`);
-  } catch (err) {
-    console.error(`[addLikeFilm] Exception:`, err);
-    throw new Error("Internal Server Error");
-  }
-}
+};
 
 const getRecommendedFilms = async ({
   supabaseClient,

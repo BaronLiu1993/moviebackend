@@ -3,9 +3,9 @@ import { verifyToken } from "../../middleware/verifyToken.js";
 import { deleteRating, insertRating, selectRatings, updateRating } from "../../service/rate/rateService.js";
 import { validateInsertRating, validateUpdateRating } from "../../middleware/validateRating.js";
 import { validateZod } from "../../middleware/schemaValidation.js";
-import { insertRatingRequestSchema, updateRatingRequestSchema, deleteRatingRequestSchema, likeRequestSchema, unlikeRequestSchema } from "../../schemas/rateSchema.js";
-import { addLikeFilm, removeLikeFilm } from "../../service/feed/feedService.js";
-import { insertInteractionEvents } from "../../service/clickhouse/clickhouseService.js";
+import { insertRatingRequestSchema, updateRatingRequestSchema, deleteRatingRequestSchema, likeRequestSchema, unlikeRequestSchema, likeRatingRequestSchema, unlikeRatingRequestSchema } from "../../schemas/rateSchema.js";
+import { likeFilm, unlikeFilm } from "../../service/feed/feedService.js";
+import { likeRating, unlikeRating } from "../../service/rate/rateService.js";
 import type { UUID } from "node:crypto";
 
 const router = Router();
@@ -73,10 +73,12 @@ router.post("/like", verifyToken, validateZod(likeRequestSchema), async (req, re
   const supabaseClient = req.supabaseClient!;
 
   try {
-    await addLikeFilm({ supabaseClient, userId, tmdbId, film_name, genre_ids });
-    await insertInteractionEvents({ userId, tmdbId, interactionType: "like", film_name, genre_ids, rating: 0 });
-    return res.status(200).json({ message: "Like recorded" });
+    await likeFilm({ supabaseClient, userId, tmdbId, film_name, genre_ids });
+    return res.status(201).send();
   } catch (err) {
+    if (err instanceof Error && err.message === "Already liked this film") {
+      return res.status(409).json({ message: err.message });
+    }
     console.error(err);
     return res.status(500).json({ message: "Internal Server Error" });
   }
@@ -87,9 +89,42 @@ router.delete("/like", verifyToken, validateZod(unlikeRequestSchema), async (req
   const { tmdbId } = req.body;
   const supabaseClient = req.supabaseClient!;
   try {
-    await removeLikeFilm({ supabaseClient, userId, tmdbId });
-    await insertInteractionEvents({ userId, tmdbId, interactionType: "like", rating: 0 });
-    return res.status(200).json({ message: "Like removed" });
+    await unlikeFilm({ supabaseClient, userId, tmdbId });
+    return res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+router.post("/like-rating", verifyToken, validateZod(likeRatingRequestSchema), async (req, res) => {
+  const userId = req.user?.sub as UUID;
+  const { ratingId } = req.body;
+  const supabaseClient = req.supabaseClient!;
+
+  try {
+    await likeRating({ supabaseClient, userId, ratingId });
+    return res.status(201).send();
+  } catch (err) {
+    if (err instanceof Error) {
+      if (err.message === "Rating not found") return res.status(404).json({ message: err.message });
+      if (err.message === "Cannot like your own rating") return res.status(403).json({ message: err.message });
+      if (err.message === "Users are not friends") return res.status(403).json({ message: err.message });
+      if (err.message === "Already liked this rating") return res.status(409).json({ message: err.message });
+    }
+    console.error(err);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+router.delete("/like-rating", verifyToken, validateZod(unlikeRatingRequestSchema), async (req, res) => {
+  const userId = req.user?.sub as UUID;
+  const { ratingId } = req.body;
+  const supabaseClient = req.supabaseClient!;
+
+  try {
+    await unlikeRating({ supabaseClient, userId, ratingId });
+    return res.status(204).send();
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Internal Server Error" });
