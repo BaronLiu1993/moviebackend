@@ -81,6 +81,30 @@ const fetchDiscoverPage = async (
     .map((r) => ({ ...r, media_type: mediaType }));
 };
 
+const ADULT_KEYWORDS = new Set([
+  "sex", "erotic", "porn", "hentai", "nude", "naked",
+  "xxx", "adult only", "18+", "hostel", "stripclub",
+  "strip club", "brothel", "escort", "prostitut",
+  "fetish", "voyeur", "softcore", "hardcore",
+  "obscene", "orgasm", "orgy", "threesome",
+  "playboy", "onlyfans",
+]);
+
+const isAdultTitle = (film: TmdbResultType): boolean => {
+  const title = (film.name || film.title || film.original_name || film.original_title || "").toLowerCase();
+  for (const kw of ADULT_KEYWORDS) {
+    if (title.includes(kw)) return true;
+  }
+  return false;
+};
+
+const hasRequiredData = (film: TmdbResultType): boolean => {
+  const hasTitle = !!(film.name || film.title || film.original_name || film.original_title);
+  const hasDate = !!(film.first_air_date || film.release_date);
+  const hasId = !!film.id;
+  return hasTitle && hasDate && hasId;
+};
+
 const fetchAllFilms = async (country: string): Promise<TmdbResultType[]> => {
   const pages = Array.from({ length: PAGES_TO_FETCH }, (_, i) => i + 1);
 
@@ -88,7 +112,20 @@ const fetchAllFilms = async (country: string): Promise<TmdbResultType[]> => {
     Promise.all(pages.map((p) => fetchDiscoverPage(country, p, "tv"))),
     Promise.all(pages.map((p) => fetchDiscoverPage(country, p, "movie"))),
   ]);
-  return [...tvResults.flat(), ...movieResults.flat()];
+
+  const raw = [...tvResults.flat(), ...movieResults.flat()];
+  const filtered = raw.filter((film) => {
+    if (!hasRequiredData(film)) return false;
+    if (isAdultTitle(film)) return false;
+    return true;
+  });
+
+  const removed = raw.length - filtered.length;
+  if (removed > 0) {
+    console.log(`[scrapeFilms] Filtered out ${removed} films (incomplete data or adult content) for ${country}`);
+  }
+
+  return filtered;
 };
 
 const upsertToStaging = async (films: TmdbResultType[]) => {
@@ -179,6 +216,7 @@ const dedupeAndInsert = async () => {
     genre_ids: f.genre_ids ?? [],
     media_type: f.media_type,
     photo_url: f.poster_path ? `${TMDB_IMAGE_BASE}${f.poster_path}` : null,
+    overview: f.overview ?? null,
     film_embedding: null,
   }));
 
