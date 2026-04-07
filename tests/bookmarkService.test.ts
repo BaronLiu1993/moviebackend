@@ -52,7 +52,7 @@ describe("bookmarkFilm", () => {
       userId,
       tmdbId: 42,
       title: "My Drama",
-      genre: ["18"],
+      genre_ids: [18],
       poster_url: "https://image.tmdb.org/t/p/w500/test.jpg",
     });
 
@@ -60,7 +60,7 @@ describe("bookmarkFilm", () => {
       user_id: userId,
       film_id: 42,
       title: "My Drama",
-      genre: ["18"],
+      genre_ids: [18],
       poster_url: "https://image.tmdb.org/t/p/w500/test.jpg",
     });
     expect(insertInteractionEvents).toHaveBeenCalledWith({
@@ -73,7 +73,7 @@ describe("bookmarkFilm", () => {
     mockFrom.mockReturnValue({ insert: insertFn });
 
     await expect(
-      bookmarkFilm({ supabaseClient, userId, tmdbId: 42, title: "X", genre: [], poster_url: "https://image.tmdb.org/t/p/w500/test.jpg" })
+      bookmarkFilm({ supabaseClient, userId, tmdbId: 42, title: "X", genre_ids: [], poster_url: "https://image.tmdb.org/t/p/w500/test.jpg" })
     ).rejects.toThrow("Failed to bookmark film");
   });
 });

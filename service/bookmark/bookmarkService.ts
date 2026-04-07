@@ -11,7 +11,7 @@ type UserRequest = {
 type BookmarkRequest = UserRequest & {
   tmdbId: number;
   title: string;
-  genre: string[];
+  genre_ids: number[];
   poster_url: string;
 };
 
@@ -53,7 +53,7 @@ export const bookmarkFilm = async ({
   userId,
   tmdbId,
   title,
-  genre,
+  genre_ids,
   poster_url,
 }: BookmarkRequest): Promise<void> => {
   try {
@@ -63,7 +63,7 @@ export const bookmarkFilm = async ({
         user_id: userId,
         film_id: tmdbId,
         title: title,
-        genre: genre,
+        genre_ids: genre_ids,
         poster_url: poster_url,
       });
 
@@ -72,7 +72,7 @@ export const bookmarkFilm = async ({
       throw new Error(`Failed to bookmark film: ${error.message}`);
     }
 
-    await insertInteractionEvents({ userId, tmdbId, interactionType: "bookmark", film_name: title, genre_ids: genre.map(Number), rating: 0 });
+    await insertInteractionEvents({ userId, tmdbId, interactionType: "bookmark", film_name: title, genre_ids, rating: 0 });
   } catch (err) {
     console.error(`[bookmarkFilm] Exception:`, err);
     throw err;

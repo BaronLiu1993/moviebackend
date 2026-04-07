@@ -21,6 +21,8 @@ type TmdbResultType = {
   origin_country?: string[];
   popularity?: number;
   media_type: MediaType;
+  poster_path?: string;
+  genre_ids?: number[];
 };
 
 type TmdbDiscoverResponseType = {
@@ -103,6 +105,8 @@ const upsertToStaging = async (films: TmdbResultType[]) => {
     origin_country: f.origin_country ?? [],
     popularity: f.popularity ?? 0,
     media_type: f.media_type,
+    poster_path: f.poster_path ?? null,
+    genre_ids: f.genre_ids ?? [],
   }));
 
   const BATCH_SIZE = 500;
@@ -165,10 +169,22 @@ const dedupeAndInsert = async () => {
     throw new Error(`Failed to fetch new films from staging: ${fetchError.message}`);
   }
 
+  // Transform staging rows to Guanghai schema
+  const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
+  const guanghaiRows = newFilms!.map((f: any) => ({
+    tmdb_id: f.tmdb_id,
+    title: f.name || f.title || f.original_name || f.original_title || "Unknown",
+    release_year: (f.first_air_date || f.release_date || "").split("-")[0] || null,
+    genre_ids: f.genre_ids ?? [],
+    media_type: f.media_type,
+    photo_url: f.poster_path ? `${TMDB_IMAGE_BASE}${f.poster_path}` : null,
+    film_embedding: null,
+  }));
+
   // Insert into Guanghai in batches
   const BATCH_SIZE = 500;
-  for (let i = 0; i < newFilms!.length; i += BATCH_SIZE) {
-    const batch = newFilms!.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < guanghaiRows.length; i += BATCH_SIZE) {
+    const batch = guanghaiRows.slice(i, i + BATCH_SIZE);
     const { error: insertError } = await supabase
       .from("Guanghai")
       .insert(batch);
@@ -177,7 +193,7 @@ const dedupeAndInsert = async () => {
       throw new Error(`Failed to insert into Guanghai: ${insertError.message}`);
     }
   }
-  console.log(`[scrapeFilms] Inserted ${newFilms!.length} new films into Guanghai`);
+  console.log(`[scrapeFilms] Inserted ${guanghaiRows.length} new films into Guanghai`);
 };
 
 const clearStaging = async () => {

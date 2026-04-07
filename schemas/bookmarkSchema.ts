@@ -3,7 +3,7 @@ import * as z from "zod";
 export const bookmarkFilmRequestSchema = z.object({
   tmdbId: z.number().int(),
   title: z.string().min(1),
-  genre: z.array(z.string()),
+  genre_ids: z.array(z.number().int()),
 });
 
 export const removeBookmarkRequestSchema = z.object({

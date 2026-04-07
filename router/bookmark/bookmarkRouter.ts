@@ -42,13 +42,13 @@ router.get("/bookmarks", verifyToken, async (req, res) => {
 router.post("/bookmarks", verifyToken, validateZod(bookmarkFilmRequestSchema), async (req, res) => {
   const userId = req.user?.sub as UUID;
   const supabaseClient = req.supabaseClient!;
-  const { tmdbId, title, genre, poster_url } = req.body;
+  const { tmdbId, title, genre_ids, poster_url } = req.body;
   if (!userId || !supabaseClient) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
 
   try {
-    await bookmarkFilm({ supabaseClient, userId, tmdbId, title, genre, poster_url });
+    await bookmarkFilm({ supabaseClient, userId, tmdbId, title, genre_ids, poster_url });
     return res.status(201).send();
   } catch (err) {
     return res.status(500).json({ message: "Internal Server Error" });
