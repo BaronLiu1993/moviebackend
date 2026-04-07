@@ -11,10 +11,12 @@ import rateRouter from "./router/rate/rateRouter.js"
 import friendRouter from './router/friend/friendRouter.js';
 
 import bookmarkRouter from "./router/bookmark/bookmarkRouter.js"
+import adminRouter from "./router/admin/adminRouter.js"
 
 // Workers
 import './queue/updateEmbedding/updateEmbeddingWorker.js';
 import './queue/impression/addImpressionWorker.js';
+import './queue/scrape/scrapeWorker.js';
 
 const app = express()
 
@@ -47,6 +49,7 @@ app.use("/v1/api/rate", rateRouter)
 app.use("/v1/api/friend", friendRouter)
 
 app.use("/v1/api/bookmark", bookmarkRouter)
+app.use("/v1/api/admin", adminRouter)
 
 app.get("/health", (req, res) => {
     return res.status(200).json({ status: "ok"})
