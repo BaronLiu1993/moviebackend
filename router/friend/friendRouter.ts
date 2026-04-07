@@ -3,6 +3,7 @@ import {
   sendFriendRequest,
   acceptFriendRequest,
   rejectFriendRequest,
+  removeFriend,
   getFollowers,
   getFollowing,
   getProfile,
@@ -11,7 +12,7 @@ import {
 import type { UUID } from "node:crypto";
 import { verifyToken } from "../../middleware/verifyToken.js";
 import { validateZod } from "../../middleware/schemaValidation.js";
-import { sendFriendRequestSchema, acceptFriendRequestSchema, declineFriendRequestSchema } from "../../schemas/friendSchema.js";
+import { sendFriendRequestSchema, acceptFriendRequestSchema, declineFriendRequestSchema, removeFriendSchema, getProfileQuerySchema, paginationQuerySchema } from "../../schemas/friendSchema.js";
 
 const router = Router();
 
@@ -35,9 +36,14 @@ router.get("/friend-requests", verifyToken, async (req, res) => {
   if (!userId || !supabaseClient) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
-  
+
+  const parsed = paginationQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ message: "Invalid query parameters" });
+  }
+
   try {
-    const data = await getFriendRequests({ userId, supabaseClient });
+    const data = await getFriendRequests({ userId, supabaseClient, ...parsed.data });
     return res.status(200).json({ data });
   } catch (err) {
     return res.status(500).json({ message: "Internal Server Error" });
@@ -69,6 +75,19 @@ router.post("/decline-request", verifyToken, validateZod(declineFriendRequestSch
   }
 });
 
+router.delete("/unfriend", verifyToken, validateZod(removeFriendSchema), async (req, res) => {
+  const { friendId } = req.body;
+  const supabaseClient = req.supabaseClient!;
+  const userId = req.user?.sub as UUID;
+
+  try {
+    await removeFriend({ userId, friendId, supabaseClient });
+    return res.status(204).send();
+  } catch (err) {
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 router.get("/following", verifyToken, async (req, res) => {
   const userId = req.user?.sub as UUID;
   const supabaseClient = req.supabaseClient;
@@ -76,8 +95,14 @@ router.get("/following", verifyToken, async (req, res) => {
   if (!userId || !supabaseClient) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
+
+  const parsed = paginationQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ message: "Invalid query parameters" });
+  }
+
   try {
-    const data = await getFollowing({ userId, supabaseClient });
+    const data = await getFollowing({ userId, supabaseClient, ...parsed.data });
     return res.status(200).json({ data });
   } catch (err) {
     return res.status(500).json({ message: "Internal Server Error" });
@@ -92,8 +117,13 @@ router.get("/followers", verifyToken, async (req, res) => {
     return res.status(400).json({ message: "Missing Inputs" });
   }
 
+  const parsed = paginationQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ message: "Invalid query parameters" });
+  }
+
   try {
-    const data = await getFollowers({ userId, supabaseClient });
+    const data = await getFollowers({ userId, supabaseClient, ...parsed.data });
     return res.status(200).json({ data });
   } catch (err) {
     return res.status(500).json({ message: "Internal Server Error" });
@@ -101,19 +131,23 @@ router.get("/followers", verifyToken, async (req, res) => {
 });
 
 router.get("/profile", verifyToken, async (req, res) => {
-  const { friendId } = req.query;
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID;
 
-  if (!userId || !friendId || !supabaseClient || typeof friendId !== "string") {
+  if (!userId || !supabaseClient) {
     return res.status(400).json({ message: "Missing Inputs" });
+  }
+
+  const parsed = getProfileQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ message: "Invalid query parameters" });
   }
 
   try {
     const data = await getProfile({
       userId,
       supabaseClient,
-      friendId: friendId as UUID,
+      friendId: parsed.data.friendId as UUID,
     });
     return res.status(200).json({ data });
   } catch (err) {

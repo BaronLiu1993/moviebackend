@@ -218,13 +218,19 @@ export const getFollowers = async ({
 export const getFriendRequests = async ({
   userId,
   supabaseClient,
+  page = 1,
+  pageSize = 10,
 }: GetFollowersRequest) => {
   try {
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
     const { data, error } = await supabaseClient
       .from("Friends")
       .select("request_id, user_id, status, friend_id")
       .eq("friend_id", userId)
-      .eq("status", "pending");
+      .eq("status", "pending")
+      .range(from, to);
 
     if (error) {
       console.error(`[getFriendRequests] Error fetching requests for user ${userId}:`, error);
@@ -253,6 +259,7 @@ export const getFollowing = async ({
       .from("Friends")
       .select("request_id, friend_id, status")
       .eq("user_id", userId)
+      .eq("status", "accepted")
       .range(from, to);
 
     if (error) {
@@ -264,6 +271,41 @@ export const getFollowing = async ({
   } catch (err) {
     console.error(`[getFollowing] Exception:`, err);
     throw new Error("Failed to fetch following");
+  }
+};
+
+// Removes an accepted friendship between two users
+export const removeFriend = async ({
+  userId,
+  friendId,
+  supabaseClient,
+}: SendFriendRequest) => {
+  try {
+    // Find the accepted friendship row (could be in either direction)
+    const { data, error: findError } = await supabaseClient
+      .from("Friends")
+      .select("request_id")
+      .eq("status", "accepted")
+      .or(`and(user_id.eq.${userId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userId})`)
+      .single();
+
+    if (findError || !data) {
+      console.error(`[removeFriend] Friendship not found between ${userId} and ${friendId}:`, findError);
+      throw new Error("Friendship not found");
+    }
+
+    const { error: deleteError } = await supabaseClient
+      .from("Friends")
+      .delete()
+      .eq("request_id", data.request_id);
+
+    if (deleteError) {
+      console.error(`[removeFriend] Error removing friendship ${data.request_id}:`, deleteError);
+      throw new Error(`Failed to remove friendship: ${deleteError.message}`);
+    }
+  } catch (err) {
+    console.error(`[removeFriend] Exception:`, err);
+    throw new Error("Failed to remove friend");
   }
 };
 
@@ -292,7 +334,7 @@ export const getProfile = async ({
 
     const { data: profile, error: profileError } = await supabaseClient
       .from("User_Profiles")
-      .select("genre, movie")
+      .select("genres, movies")
       .eq("user_id", friendId)
       .single();
 

@@ -6,6 +6,7 @@ import {
   sendFriendRequest,
   acceptFriendRequest,
   rejectFriendRequest,
+  removeFriend,
   getFollowers,
   getFriendRequests,
   getFollowing,
@@ -164,30 +165,34 @@ describe("getFollowers", () => {
 });
 
 describe("getFriendRequests", () => {
-  it("returns pending friend requests", async () => {
+  it("returns pending friend requests with pagination", async () => {
     const requests = [{ request_id: "r1", user_id: "u1", status: "pending", friend_id: userId }];
-    const eqStatus = jest.fn<AnyFn>().mockResolvedValue({ data: requests, error: null });
+    const range = jest.fn<AnyFn>().mockResolvedValue({ data: requests, error: null });
+    const eqStatus = jest.fn<AnyFn>().mockReturnValue({ range });
     const eqFriend = jest.fn<AnyFn>().mockReturnValue({ eq: eqStatus });
     const select = jest.fn<AnyFn>().mockReturnValue({ eq: eqFriend });
     mockFrom.mockReturnValue({ select });
 
-    const result = await getFriendRequests({ supabaseClient, userId });
+    const result = await getFriendRequests({ supabaseClient, userId, page: 1, pageSize: 10 });
 
     expect(result).toEqual(requests);
+    expect(range).toHaveBeenCalledWith(0, 9);
   });
 });
 
 describe("getFollowing", () => {
-  it("returns outgoing requests with pagination", async () => {
+  it("returns accepted friendships with pagination", async () => {
     const following = [{ request_id: "r1", friend_id: "f1", status: "accepted" }];
     const range = jest.fn<AnyFn>().mockResolvedValue({ data: following, error: null });
-    const eq = jest.fn<AnyFn>().mockReturnValue({ range });
-    const select = jest.fn<AnyFn>().mockReturnValue({ eq });
+    const eqStatus = jest.fn<AnyFn>().mockReturnValue({ range });
+    const eqUser = jest.fn<AnyFn>().mockReturnValue({ eq: eqStatus });
+    const select = jest.fn<AnyFn>().mockReturnValue({ eq: eqUser });
     mockFrom.mockReturnValue({ select });
 
     const result = await getFollowing({ supabaseClient, userId, page: 1, pageSize: 10 });
 
     expect(result).toEqual(following);
+    expect(eqStatus).toHaveBeenCalledWith("status", "accepted");
   });
 });
 
@@ -224,5 +229,37 @@ describe("getProfile", () => {
     await expect(
       getProfile({ supabaseClient, userId, friendId })
     ).rejects.toThrow("Failed to fetch friend profile");
+  });
+});
+
+describe("removeFriend", () => {
+  it("removes an accepted friendship", async () => {
+    const single = jest.fn<AnyFn>().mockResolvedValue({ data: { request_id: "r1" }, error: null });
+    const or = jest.fn<AnyFn>().mockReturnValue({ single });
+    const eqStatus = jest.fn<AnyFn>().mockReturnValue({ or });
+    const selectFind = jest.fn<AnyFn>().mockReturnValue({ eq: eqStatus });
+
+    const eqDelete = jest.fn<AnyFn>().mockResolvedValue({ error: null });
+    const deleteFn = jest.fn<AnyFn>().mockReturnValue({ eq: eqDelete });
+
+    mockFrom
+      .mockReturnValueOnce({ select: selectFind })
+      .mockReturnValueOnce({ delete: deleteFn });
+
+    await removeFriend({ supabaseClient, userId, friendId });
+
+    expect(eqDelete).toHaveBeenCalledWith("request_id", "r1");
+  });
+
+  it("throws if friendship not found", async () => {
+    const single = jest.fn<AnyFn>().mockResolvedValue({ data: null, error: { message: "not found" } });
+    const or = jest.fn<AnyFn>().mockReturnValue({ single });
+    const eqStatus = jest.fn<AnyFn>().mockReturnValue({ or });
+    const selectFind = jest.fn<AnyFn>().mockReturnValue({ eq: eqStatus });
+    mockFrom.mockReturnValueOnce({ select: selectFind });
+
+    await expect(
+      removeFriend({ supabaseClient, userId, friendId })
+    ).rejects.toThrow("Failed to remove friend");
   });
 });
