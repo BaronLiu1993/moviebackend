@@ -12,6 +12,7 @@ type BookmarkRequest = UserRequest & {
   tmdbId: number;
   title: string;
   genre: string[];
+  poster_url: string;
 };
 
 type SelectBookmarkRequest = {
@@ -53,6 +54,7 @@ export const bookmarkFilm = async ({
   tmdbId,
   title,
   genre,
+  poster_url,
 }: BookmarkRequest): Promise<void> => {
   try {
     const { error } = await supabaseClient
@@ -62,6 +64,7 @@ export const bookmarkFilm = async ({
         film_id: tmdbId,
         title: title,
         genre: genre,
+        poster_url: poster_url,
       });
 
     if (error) {

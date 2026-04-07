@@ -15,7 +15,7 @@ import type { UUID } from "node:crypto";
 
 const router = Router();
 
-router.get("/select-bookmarks", verifyToken, async (req, res) => {
+router.get("/bookmarks", verifyToken, async (req, res) => {
   const userId = req.user?.sub as UUID;
   const supabaseClient = req.supabaseClient!;
   
@@ -39,24 +39,23 @@ router.get("/select-bookmarks", verifyToken, async (req, res) => {
   }
 });
 
-router.post("/bookmark", verifyToken, validateZod(bookmarkFilmRequestSchema), async (req, res) => {
+router.post("/bookmarks", verifyToken, validateZod(bookmarkFilmRequestSchema), async (req, res) => {
   const userId = req.user?.sub as UUID;
   const supabaseClient = req.supabaseClient!;
-  const { tmdbId, title, genre } = req.body;
-
+  const { tmdbId, title, genre, poster_url } = req.body;
   if (!userId || !supabaseClient) {
     return res.status(400).json({ message: "Missing Inputs" });
   }
 
   try {
-    await bookmarkFilm({ supabaseClient, userId, tmdbId, title, genre });
+    await bookmarkFilm({ supabaseClient, userId, tmdbId, title, genre, poster_url });
     return res.status(201).send();
   } catch (err) {
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-router.delete("/remove-bookmark", verifyToken, validateZod(removeBookmarkRequestSchema), async (req, res) => {
+router.delete("/bookmarks", verifyToken, validateZod(removeBookmarkRequestSchema), async (req, res) => {
   const userId = req.user?.sub as UUID;
   const supabaseClient = req.supabaseClient!;
   const { tmdbId } = req.body;
