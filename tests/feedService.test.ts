@@ -1,6 +1,8 @@
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 
-const mockFetch = jest.fn() as jest.Mock;
+type AnyFn = (...args: any[]) => any;
+
+const mockFetch = jest.fn<AnyFn>();
 global.fetch = mockFetch as any;
 
 import {
@@ -10,8 +12,8 @@ import {
   getCollaborativeFilters,
 } from "../service/feed/feedService.js";
 
-const mockFrom = jest.fn();
-const mockRpc = jest.fn();
+const mockFrom = jest.fn<AnyFn>();
+const mockRpc = jest.fn<AnyFn>();
 const supabaseClient = { from: mockFrom, rpc: mockRpc } as any;
 const userId = "user-feed" as any;
 
@@ -67,10 +69,10 @@ describe("getCollaborativeFilters", () => {
     mockRpc.mockResolvedValueOnce({ data: ["friend-1", "friend-2"], error: null });
 
     const friendFilms = [{ film_id: 100, rating: 5, film_name: "Great Show", genre_ids: [18] }];
-    const limit = jest.fn().mockResolvedValue({ data: friendFilms, error: null });
-    const gte = jest.fn().mockReturnValue({ limit });
-    const eq = jest.fn().mockReturnValue({ gte });
-    const select = jest.fn().mockReturnValue({ eq });
+    const limit = jest.fn<AnyFn>().mockResolvedValue({ data: friendFilms, error: null });
+    const gte = jest.fn<AnyFn>().mockReturnValue({ limit });
+    const eq = jest.fn<AnyFn>().mockReturnValue({ gte });
+    const select = jest.fn<AnyFn>().mockReturnValue({ eq });
     mockFrom.mockReturnValue({ select });
 
     const result = await getCollaborativeFilters({ supabaseClient, userId });

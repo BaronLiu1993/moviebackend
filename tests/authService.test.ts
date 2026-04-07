@@ -1,11 +1,13 @@
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 
+type AnyFn = (...args: any[]) => any;
+
 process.env["OPENAI_API_KEY"] = "test-key";
 
-const mockSignUp = jest.fn();
-const mockSignIn = jest.fn();
-const mockEmbeddingsCreate = jest.fn();
-const mockSupabaseFrom = jest.fn();
+const mockSignUp = jest.fn<AnyFn>();
+const mockSignIn = jest.fn<AnyFn>();
+const mockEmbeddingsCreate = jest.fn<AnyFn>();
+const mockSupabaseFrom = jest.fn<AnyFn>();
 
 jest.unstable_mockModule("../service/supabase/configureSupabase.js", () => ({
   createSignInSupabase: () => ({
@@ -15,8 +17,8 @@ jest.unstable_mockModule("../service/supabase/configureSupabase.js", () => ({
 }));
 
 jest.unstable_mockModule("../service/tmdb/tmdbService.js", () => ({
-  fetchTmdbOverview: jest.fn<any>().mockResolvedValue({ title: "Test Drama", overview: "A test overview" }),
-  fetchTmdbKeywords: jest.fn<any>().mockResolvedValue(["drama", "romance"]),
+  fetchTmdbOverview: jest.fn<AnyFn>().mockResolvedValue({ title: "Test Drama", overview: "A test overview" }),
+  fetchTmdbKeywords: jest.fn<AnyFn>().mockResolvedValue(["drama", "romance"]),
 }));
 
 jest.unstable_mockModule("openai", () => ({
@@ -40,7 +42,7 @@ describe("signUpUser", () => {
       },
       error: null,
     });
-    const insertFn = jest.fn().mockResolvedValue({ error: null });
+    const insertFn = jest.fn<AnyFn>().mockResolvedValue({ error: null });
     mockSupabaseFrom.mockReturnValue({ insert: insertFn });
 
     const result = await signUpUser({ email: "a@b.com", password: "pass123", name: "Test" });
@@ -74,7 +76,7 @@ describe("signUpUser", () => {
       },
       error: null,
     });
-    const insertFn = jest.fn().mockResolvedValue({ error: { message: "constraint" } });
+    const insertFn = jest.fn<AnyFn>().mockResolvedValue({ error: { message: "constraint" } });
     mockSupabaseFrom.mockReturnValue({ insert: insertFn });
 
     await expect(
@@ -115,7 +117,7 @@ describe("loginUser", () => {
 });
 
 describe("registerUser", () => {
-  const mockUserSupabase = { from: jest.fn() } as any;
+  const mockUserSupabase = { from: jest.fn<AnyFn>() } as any;
   const baseArgs = {
     userId: "uid-1" as any,
     genres: "drama,romance",
@@ -123,15 +125,15 @@ describe("registerUser", () => {
   };
 
   it("generates embedding and updates profile", async () => {
-    const singleCheck = jest.fn().mockResolvedValue({
+    const singleCheck = jest.fn<AnyFn>().mockResolvedValue({
       data: { completed_registration: false },
       error: null,
     });
-    const eqCheck = jest.fn().mockReturnValue({ single: singleCheck });
-    const selectCheck = jest.fn().mockReturnValue({ eq: eqCheck });
+    const eqCheck = jest.fn<AnyFn>().mockReturnValue({ single: singleCheck });
+    const selectCheck = jest.fn<AnyFn>().mockReturnValue({ eq: eqCheck });
 
-    const eqUpdate = jest.fn().mockResolvedValue({ error: null });
-    const updateFn = jest.fn().mockReturnValue({ eq: eqUpdate });
+    const eqUpdate = jest.fn<AnyFn>().mockResolvedValue({ error: null });
+    const updateFn = jest.fn<AnyFn>().mockReturnValue({ eq: eqUpdate });
 
     mockUserSupabase.from
       .mockReturnValueOnce({ select: selectCheck })
@@ -155,24 +157,24 @@ describe("registerUser", () => {
   });
 
   it("throws if user already registered", async () => {
-    const singleCheck = jest.fn().mockResolvedValue({
+    const singleCheck = jest.fn<AnyFn>().mockResolvedValue({
       data: { completed_registration: true },
       error: null,
     });
-    const eqCheck = jest.fn().mockReturnValue({ single: singleCheck });
-    const selectCheck = jest.fn().mockReturnValue({ eq: eqCheck });
+    const eqCheck = jest.fn<AnyFn>().mockReturnValue({ single: singleCheck });
+    const selectCheck = jest.fn<AnyFn>().mockReturnValue({ eq: eqCheck });
     mockUserSupabase.from.mockReturnValueOnce({ select: selectCheck });
 
     await expect(registerUser(baseArgs)).rejects.toThrow("User has already completed registration");
   });
 
   it("throws if embedding generation fails", async () => {
-    const singleCheck = jest.fn().mockResolvedValue({
+    const singleCheck = jest.fn<AnyFn>().mockResolvedValue({
       data: { completed_registration: false },
       error: null,
     });
-    const eqCheck = jest.fn().mockReturnValue({ single: singleCheck });
-    const selectCheck = jest.fn().mockReturnValue({ eq: eqCheck });
+    const eqCheck = jest.fn<AnyFn>().mockReturnValue({ single: singleCheck });
+    const selectCheck = jest.fn<AnyFn>().mockReturnValue({ eq: eqCheck });
     mockUserSupabase.from.mockReturnValueOnce({ select: selectCheck });
 
     mockEmbeddingsCreate.mockResolvedValueOnce({ data: [{}] });
@@ -181,15 +183,15 @@ describe("registerUser", () => {
   });
 
   it("fetches TMDB overviews when movieIds are provided", async () => {
-    const singleCheck = jest.fn().mockResolvedValue({
+    const singleCheck = jest.fn<AnyFn>().mockResolvedValue({
       data: { completed_registration: false },
       error: null,
     });
-    const eqCheck = jest.fn().mockReturnValue({ single: singleCheck });
-    const selectCheck = jest.fn().mockReturnValue({ eq: eqCheck });
+    const eqCheck = jest.fn<AnyFn>().mockReturnValue({ single: singleCheck });
+    const selectCheck = jest.fn<AnyFn>().mockReturnValue({ eq: eqCheck });
 
-    const eqUpdate = jest.fn().mockResolvedValue({ error: null });
-    const updateFn = jest.fn().mockReturnValue({ eq: eqUpdate });
+    const eqUpdate = jest.fn<AnyFn>().mockResolvedValue({ error: null });
+    const updateFn = jest.fn<AnyFn>().mockReturnValue({ eq: eqUpdate });
 
     mockUserSupabase.from
       .mockReturnValueOnce({ select: selectCheck })

@@ -1,19 +1,21 @@
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 
+type AnyFn = (...args: any[]) => any;
+
 jest.unstable_mockModule("../service/clickhouse/clickhouseService.js", () => ({
-  insertInteractionEvents: jest.fn(),
-  insertImpressionEvent: jest.fn(),
+  insertInteractionEvents: jest.fn<AnyFn>(),
+  insertImpressionEvent: jest.fn<AnyFn>(),
 }));
 
 jest.unstable_mockModule("../queue/updateEmbedding/updateEmbeddingQueue.js", () => ({
-  default: { add: jest.fn() },
+  default: { add: jest.fn<AnyFn>() },
 }));
 
 const { insertInteractionEvents } = await import("../service/clickhouse/clickhouseService.js");
 const { default: updateEmbeddingQueue } = await import("../queue/updateEmbedding/updateEmbeddingQueue.js");
 const { selectRatings, insertRating, deleteRating, updateRating } = await import("../service/rate/rateService.js");
 
-const mockFrom = jest.fn();
+const mockFrom = jest.fn<AnyFn>();
 const supabaseClient = { from: mockFrom } as any;
 
 const userId = "user-123" as any;
@@ -26,9 +28,9 @@ beforeEach(() => {
 describe("selectRatings", () => {
   it("returns ratings ordered by created_at desc", async () => {
     const ratings = [{ rating_id: "r1", rating: 5 }];
-    const order = jest.fn().mockResolvedValue({ data: ratings, error: null });
-    const eq = jest.fn().mockReturnValue({ order });
-    const select = jest.fn().mockReturnValue({ eq });
+    const order = jest.fn<AnyFn>().mockResolvedValue({ data: ratings, error: null });
+    const eq = jest.fn<AnyFn>().mockReturnValue({ order });
+    const select = jest.fn<AnyFn>().mockReturnValue({ eq });
     mockFrom.mockReturnValue({ select });
 
     const result = await selectRatings({ userId, supabaseClient });
@@ -38,9 +40,9 @@ describe("selectRatings", () => {
   });
 
   it("throws on select error", async () => {
-    const order = jest.fn().mockResolvedValue({ data: null, error: { message: "db error" } });
-    const eq = jest.fn().mockReturnValue({ order });
-    const select = jest.fn().mockReturnValue({ eq });
+    const order = jest.fn<AnyFn>().mockResolvedValue({ data: null, error: { message: "db error" } });
+    const eq = jest.fn<AnyFn>().mockReturnValue({ order });
+    const select = jest.fn<AnyFn>().mockReturnValue({ eq });
     mockFrom.mockReturnValue({ select });
 
     await expect(selectRatings({ userId, supabaseClient })).rejects.toThrow("Failed to select ratings");
@@ -60,12 +62,12 @@ describe("insertRating", () => {
   };
 
   it("inserts rating and enqueues embedding job", async () => {
-    const singleCheck = jest.fn().mockResolvedValue({ data: null, error: { code: "PGRST116" } });
-    const eqTmdb = jest.fn().mockReturnValue({ single: singleCheck });
-    const eqUser = jest.fn().mockReturnValue({ eq: eqTmdb });
-    const selectCheck = jest.fn().mockReturnValue({ eq: eqUser });
+    const singleCheck = jest.fn<AnyFn>().mockResolvedValue({ data: null, error: { code: "PGRST116" } });
+    const eqTmdb = jest.fn<AnyFn>().mockReturnValue({ single: singleCheck });
+    const eqUser = jest.fn<AnyFn>().mockReturnValue({ eq: eqTmdb });
+    const selectCheck = jest.fn<AnyFn>().mockReturnValue({ eq: eqUser });
 
-    const insertFn = jest.fn().mockResolvedValue({ error: null });
+    const insertFn = jest.fn<AnyFn>().mockResolvedValue({ error: null });
 
     mockFrom
       .mockReturnValueOnce({ select: selectCheck })
@@ -87,21 +89,21 @@ describe("insertRating", () => {
   });
 
   it("throws if user already rated the film", async () => {
-    const singleCheck = jest.fn().mockResolvedValue({ data: { rating_id: "existing" }, error: null });
-    const eqTmdb = jest.fn().mockReturnValue({ single: singleCheck });
-    const eqUser = jest.fn().mockReturnValue({ eq: eqTmdb });
-    const selectCheck = jest.fn().mockReturnValue({ eq: eqUser });
+    const singleCheck = jest.fn<AnyFn>().mockResolvedValue({ data: { rating_id: "existing" }, error: null });
+    const eqTmdb = jest.fn<AnyFn>().mockReturnValue({ single: singleCheck });
+    const eqUser = jest.fn<AnyFn>().mockReturnValue({ eq: eqTmdb });
+    const selectCheck = jest.fn<AnyFn>().mockReturnValue({ eq: eqUser });
     mockFrom.mockReturnValueOnce({ select: selectCheck });
 
     await expect(insertRating(baseArgs)).rejects.toThrow("User has already rated this film");
   });
 
   it("throws on insert error", async () => {
-    const singleCheck = jest.fn().mockResolvedValue({ data: null, error: { code: "PGRST116" } });
-    const eqTmdb = jest.fn().mockReturnValue({ single: singleCheck });
-    const eqUser = jest.fn().mockReturnValue({ eq: eqTmdb });
-    const selectCheck = jest.fn().mockReturnValue({ eq: eqUser });
-    const insertFn = jest.fn().mockResolvedValue({ error: { message: "constraint violation" } });
+    const singleCheck = jest.fn<AnyFn>().mockResolvedValue({ data: null, error: { code: "PGRST116" } });
+    const eqTmdb = jest.fn<AnyFn>().mockReturnValue({ single: singleCheck });
+    const eqUser = jest.fn<AnyFn>().mockReturnValue({ eq: eqTmdb });
+    const selectCheck = jest.fn<AnyFn>().mockReturnValue({ eq: eqUser });
+    const insertFn = jest.fn<AnyFn>().mockResolvedValue({ error: { message: "constraint violation" } });
 
     mockFrom
       .mockReturnValueOnce({ select: selectCheck })
@@ -115,15 +117,15 @@ describe("deleteRating", () => {
   const ratingId = "rating-456" as any;
 
   it("deletes rating and enqueues embedding job", async () => {
-    const singleFetch = jest.fn().mockResolvedValue({
+    const singleFetch = jest.fn<AnyFn>().mockResolvedValue({
       data: { user_id: userId, tmdb_id: 999, rating: 3 },
       error: null,
     });
-    const eqFetch = jest.fn().mockReturnValue({ single: singleFetch });
-    const selectFetch = jest.fn().mockReturnValue({ eq: eqFetch });
+    const eqFetch = jest.fn<AnyFn>().mockReturnValue({ single: singleFetch });
+    const selectFetch = jest.fn<AnyFn>().mockReturnValue({ eq: eqFetch });
 
-    const eqDelete = jest.fn().mockResolvedValue({ error: null });
-    const deleteFn = jest.fn().mockReturnValue({ eq: eqDelete });
+    const eqDelete = jest.fn<AnyFn>().mockResolvedValue({ error: null });
+    const deleteFn = jest.fn<AnyFn>().mockReturnValue({ eq: eqDelete });
 
     mockFrom
       .mockReturnValueOnce({ select: selectFetch })
@@ -138,21 +140,21 @@ describe("deleteRating", () => {
   });
 
   it("throws if rating not found", async () => {
-    const singleFetch = jest.fn().mockResolvedValue({ data: null, error: { message: "not found" } });
-    const eqFetch = jest.fn().mockReturnValue({ single: singleFetch });
-    const selectFetch = jest.fn().mockReturnValue({ eq: eqFetch });
+    const singleFetch = jest.fn<AnyFn>().mockResolvedValue({ data: null, error: { message: "not found" } });
+    const eqFetch = jest.fn<AnyFn>().mockReturnValue({ single: singleFetch });
+    const selectFetch = jest.fn<AnyFn>().mockReturnValue({ eq: eqFetch });
     mockFrom.mockReturnValueOnce({ select: selectFetch });
 
     await expect(deleteRating({ ratingId, userId, supabaseClient, accessToken })).rejects.toThrow("Rating not found");
   });
 
   it("throws if user is unauthorized", async () => {
-    const singleFetch = jest.fn().mockResolvedValue({
+    const singleFetch = jest.fn<AnyFn>().mockResolvedValue({
       data: { user_id: "other-user", tmdb_id: 999, rating: 3 },
       error: null,
     });
-    const eqFetch = jest.fn().mockReturnValue({ single: singleFetch });
-    const selectFetch = jest.fn().mockReturnValue({ eq: eqFetch });
+    const eqFetch = jest.fn<AnyFn>().mockReturnValue({ single: singleFetch });
+    const selectFetch = jest.fn<AnyFn>().mockReturnValue({ eq: eqFetch });
     mockFrom.mockReturnValueOnce({ select: selectFetch });
 
     await expect(deleteRating({ ratingId, userId, supabaseClient, accessToken })).rejects.toThrow("Unauthorized");
@@ -163,15 +165,15 @@ describe("updateRating", () => {
   const ratingId = "rating-789" as any;
 
   it("updates rating and enqueues embedding job with old rating", async () => {
-    const singleFetch = jest.fn().mockResolvedValue({
+    const singleFetch = jest.fn<AnyFn>().mockResolvedValue({
       data: { user_id: userId, tmdb_id: 555, rating: 2 },
       error: null,
     });
-    const eqFetch = jest.fn().mockReturnValue({ single: singleFetch });
-    const selectFetch = jest.fn().mockReturnValue({ eq: eqFetch });
+    const eqFetch = jest.fn<AnyFn>().mockReturnValue({ single: singleFetch });
+    const selectFetch = jest.fn<AnyFn>().mockReturnValue({ eq: eqFetch });
 
-    const eqUpdate = jest.fn().mockResolvedValue({ error: null });
-    const updateFn = jest.fn().mockReturnValue({ eq: eqUpdate });
+    const eqUpdate = jest.fn<AnyFn>().mockResolvedValue({ error: null });
+    const updateFn = jest.fn<AnyFn>().mockReturnValue({ eq: eqUpdate });
 
     mockFrom
       .mockReturnValueOnce({ select: selectFetch })
@@ -189,9 +191,9 @@ describe("updateRating", () => {
   });
 
   it("throws if rating not found", async () => {
-    const singleFetch = jest.fn().mockResolvedValue({ data: null, error: { message: "not found" } });
-    const eqFetch = jest.fn().mockReturnValue({ single: singleFetch });
-    const selectFetch = jest.fn().mockReturnValue({ eq: eqFetch });
+    const singleFetch = jest.fn<AnyFn>().mockResolvedValue({ data: null, error: { message: "not found" } });
+    const eqFetch = jest.fn<AnyFn>().mockReturnValue({ single: singleFetch });
+    const selectFetch = jest.fn<AnyFn>().mockReturnValue({ eq: eqFetch });
     mockFrom.mockReturnValueOnce({ select: selectFetch });
 
     await expect(

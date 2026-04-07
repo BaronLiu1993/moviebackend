@@ -1,6 +1,8 @@
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 
-const mockFetch = jest.fn() as jest.Mock;
+type AnyFn = (...args: any[]) => any;
+
+const mockFetch = jest.fn<AnyFn>();
 global.fetch = mockFetch as any;
 
 import { fetchTmdbOverview, fetchTmdbKeywords } from "../service/tmdb/tmdbService.js";
