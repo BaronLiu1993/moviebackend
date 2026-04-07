@@ -72,7 +72,7 @@ export const bookmarkFilm = async ({
       throw new Error(`Failed to bookmark film: ${error.message}`);
     }
 
-    await insertInteractionEvents({ userId, tmdbId, interactionType: "bookmark", film_name: title, rating: 0 });
+    await insertInteractionEvents({ userId, tmdbId, interactionType: "bookmark", film_name: title, genre_ids: genre.map(Number), rating: 0 });
   } catch (err) {
     console.error(`[bookmarkFilm] Exception:`, err);
     throw err;
