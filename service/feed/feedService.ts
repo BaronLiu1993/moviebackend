@@ -12,7 +12,7 @@ const RRF_WEIGHTS = {
 } as const;
 const DIVERSITY_PENALTY = 0.15;
 
-type FilmType = {
+export type FilmType = {
   tmdb_id: number;
   title: string;
   release_year: string;
@@ -224,8 +224,8 @@ export const deduplicateCollaborative = (films: CollaborativeFilm[]): Collaborat
     .sort((a, b) => b.rating - a.rating);
 };
 
-type RankedList = {
-  name: keyof typeof RRF_WEIGHTS;
+export type RankedList = {
+  name: string;
   items: FilmType[];
 };
 

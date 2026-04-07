@@ -4,8 +4,10 @@ import { verifyToken } from "../../middleware/verifyToken.js";
 import { validateZod } from "../../middleware/schemaValidation.js";
 import type { UUID } from "node:crypto";
 import { getFeedQuerySchema } from "../../schemas/feedSchema.js";
+import { searchQuerySchema } from "../../schemas/searchSchema.js";
 import { bulkImpressionsRequestSchema } from "../../schemas/analyticsSchema.js";
 import impressionQueue from "../../queue/impression/addImpressionQueue.js";
+import { searchFilms } from "../../service/search/searchService.js";
 
 const router = Router();
 
@@ -46,6 +48,37 @@ router.post("/bulk-impressions", verifyToken, validateZod(bulkImpressionsRequest
     return res.status(200).json({ message: "Bulk impressions recorded" });
   } catch (err) {
     console.error(err);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+router.get("/search", verifyToken, async (req, res) => {
+  const supabaseClient = req.supabaseClient;
+  const userId = req.user?.sub as UUID;
+
+  if (!supabaseClient || !userId) {
+    return res.status(401).json({ message: "Missing Supabase or UserID" });
+  }
+
+  const parsed = searchQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ message: "Invalid query parameters" });
+  }
+
+  const { q, page, pageSize, media_type, genre_ids } = parsed.data;
+
+  try {
+    const response = await searchFilms({
+      supabaseClient,
+      query: q,
+      page,
+      pageSize,
+      mediaType: media_type,
+      genreIds: genre_ids,
+    });
+    return res.status(200).json(response);
+  } catch (err) {
+    console.error("[search]", err);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
