@@ -130,3 +130,51 @@ All routes under `/v1/api` are prefixed. Global middleware: CORS, cookie-parser,
 - The Supabase client is created per-request in `verifyToken.ts` using the user's access token, ensuring RLS policies apply
 - Three Supabase client types exist: user-authenticated, OAuth sign-in (singleton, PKCE), and server-side admin (service role)
 - No test files exist yet despite Jest being installed
+
+## Development Workflow Rules
+
+These rules are **mandatory** for all code changes. Do not skip or shortcut them.
+
+### 1. Plan First, Then Execute
+
+Before writing any code, **always present a plan** for the user to review:
+- Outline what files will be created or modified
+- Describe the approach and any design decisions
+- List the Zod schemas that will be needed for input validation
+- List the test cases that will be written
+- **Wait for explicit user approval** before writing any code
+
+If the scope changes mid-task, pause and re-plan.
+
+### 2. Test-Driven Development (TDD)
+
+All new code **must** follow a strict TDD cycle:
+1. **Write failing tests first** — define the expected behavior before any implementation
+2. **Run the tests** — confirm they fail for the right reason
+3. **Write the minimal implementation** to make the tests pass
+4. **Run the tests again** — confirm they pass
+5. **Refactor** if needed, re-running tests after each change
+
+Tests go in the `tests/` directory, mirroring the source structure (e.g., `service/auth/authService.ts` → `tests/authService.test.ts`). Use Jest as the test runner.
+
+### 3. Input Validation with Zod
+
+All external input **must** be validated using [Zod](https://zod.dev/) schemas:
+- **Route handlers**: Validate `req.body`, `req.params`, and `req.query` with Zod schemas before passing data to services
+- **Service functions**: Do not trust raw input — accept already-validated types inferred from Zod schemas (`z.infer<typeof schema>`)
+- **Schema location**: Define Zod schemas in a `schemas/` directory, co-located by domain (e.g., `schemas/rateSchemas.ts`, `schemas/friendSchemas.ts`)
+- **Error responses**: When validation fails, return a `400` response with the Zod error messages — do not let invalid data propagate deeper
+
+Example pattern:
+```ts
+// schemas/rateSchemas.ts
+import { z } from "zod";
+export const insertRatingSchema = z.object({
+  tmdbId: z.number().int().positive(),
+  rating: z.number().int().min(1).max(5),
+  note: z.string().min(10).max(500),
+  filmName: z.string().min(1),
+  genre: z.string().min(1),
+});
+export type InsertRatingInput = z.infer<typeof insertRatingSchema>;
+```
