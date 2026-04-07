@@ -77,9 +77,7 @@ export const loginUser = async ({ email, password }: { email: string; password: 
     userId: data.user.id,
   };
 };
-
-// helpers
-// Ensures a user can only complete profile registration once
+  // Ensures a user can only complete profile registration once
 const checkRegistration = async (
   supabaseClient: SupabaseClient,
   userId: UUID

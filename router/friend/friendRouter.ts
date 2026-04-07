@@ -28,7 +28,7 @@ router.post("/send-request", verifyToken, validateZod(sendFriendRequestSchema), 
   }
 });
 
-router.get("/get-friend-requests", verifyToken, async (req, res) => {
+router.get("/friend-requests", verifyToken, async (req, res) => {
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID;
 
@@ -69,7 +69,7 @@ router.post("/decline-request", verifyToken, validateZod(declineFriendRequestSch
   }
 });
 
-router.get("/get-following", verifyToken, async (req, res) => {
+router.get("/following", verifyToken, async (req, res) => {
   const userId = req.user?.sub as UUID;
   const supabaseClient = req.supabaseClient;
 
@@ -84,7 +84,7 @@ router.get("/get-following", verifyToken, async (req, res) => {
   }
 });
 
-router.get("/get-followers", verifyToken, async (req, res) => {
+router.get("/followers", verifyToken, async (req, res) => {
   const userId = req.user?.sub as UUID;
   const supabaseClient = req.supabaseClient;
 
@@ -100,7 +100,7 @@ router.get("/get-followers", verifyToken, async (req, res) => {
   }
 });
 
-router.get("/get-profile", verifyToken, async (req, res) => {
+router.get("/profile", verifyToken, async (req, res) => {
   const { friendId } = req.query;
   const supabaseClient = req.supabaseClient;
   const userId = req.user?.sub as UUID;

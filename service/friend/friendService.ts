@@ -27,13 +27,6 @@ type GetProfileRequest = {
   friendId: UUID;
 };
 
-type EnhanceProfileRequest = {
-  supabaseClient: SupabaseClient;
-  userId: UUID;
-  friendId: UUID;
-  tmdbId: number;
-};
-
 // Checks whether two users have an accepted friendship relationship
 const checkIsFriends = async (
   supabaseClient: SupabaseClient,
@@ -45,7 +38,6 @@ const checkIsFriends = async (
       p_follower_id: userId,
       p_following_id: friendId,
     });
-
     if (error) {
       console.error(`[checkIsFriends] Error checking friendship between ${userId} and ${friendId}:`, error);
       throw new Error(`Failed to check friendship status: ${error.message}`);
@@ -95,6 +87,7 @@ export const sendFriendRequest = async ({
   try {
     // Check if user is trying to add themselves
     if (userId === friendId) {
+      console.error(`[sendFriendRequest] User ${userId} attempted to send friend request to themselves`);
       throw new Error("Cannot send friend request to yourself");
     }
 
@@ -106,6 +99,7 @@ export const sendFriendRequest = async ({
       .single();
 
     if (friendCheckError || !friendExists) {
+      console.error(`[sendFriendRequest] Friend user ${friendId} not found:`, friendCheckError);
       throw new Error("User not found");
     }
 
@@ -118,6 +112,7 @@ export const sendFriendRequest = async ({
       .single();
 
     if (!existingError && existingRequest) {
+      console.error(`[sendFriendRequest] Friend request already exists from ${userId} to ${friendId} with status ${existingRequest.status}`);
       throw new Error(`Friend request already ${existingRequest.status}`);
     }
 
@@ -136,7 +131,7 @@ export const sendFriendRequest = async ({
     return true;
   } catch (err) {
     console.error(`[sendFriendRequest] Exception:`, err);
-    throw err;
+    throw new Error("Failed to send friend request");
   }
 };
 
@@ -161,7 +156,7 @@ export const acceptFriendRequest = async ({
     }
   } catch (err) {
     console.error(`[acceptFriendRequest] Exception:`, err);
-    throw err;
+    throw new Error("Failed to accept friend request");
   }
 };
 
@@ -186,7 +181,7 @@ export const rejectFriendRequest = async ({
     }
   } catch (err) {
     console.error(`[rejectFriendRequest] Exception:`, err);
-    throw err;
+    throw new Error("Failed to reject friend request");
   }
 };
 
@@ -216,7 +211,7 @@ export const getFollowers = async ({
     return data;
   } catch (err) {
     console.error(`[getFollowers] Exception:`, err);
-    throw err;
+    throw new Error("Failed to fetch followers");
   }
 };
 
@@ -239,7 +234,7 @@ export const getFriendRequests = async ({
     return data;
   } catch (err) {
     console.error(`[getFriendRequests] Exception:`, err);
-    throw err;
+    throw new Error("Failed to fetch friend requests");
   }
 };
 
@@ -268,7 +263,7 @@ export const getFollowing = async ({
     return data;
   } catch (err) {
     console.error(`[getFollowing] Exception:`, err);
-    throw err;
+    throw new Error("Failed to fetch following");
   }
 };
 
@@ -312,7 +307,7 @@ export const getProfile = async ({
     };
   } catch (err) {
     console.error(`[getProfile] Exception:`, err);
-    throw err;
+    throw new Error("Failed to fetch friend profile");
   }
 };
 
