@@ -2,7 +2,7 @@ import { Connection } from "../redis/redis.js";
 import { Queue } from "bullmq";
 
 export type ScrapeJobData = {
-  triggeredBy?: "cron" | "manual";
+  triggeredBy?: "github-action" | "manual";
 };
 
 const scrapeQueue = new Queue<ScrapeJobData>("scrape", {
@@ -16,14 +16,6 @@ const scrapeQueue = new Queue<ScrapeJobData>("scrape", {
       delay: 2000,
     },
   },
-});
-
-// Weekly scrape: Sunday 3 AM
-scrapeQueue.upsertJobScheduler("weekly-scrape", {
-  pattern: "0 3 * * 0",
-}, {
-  name: "scrape-films",
-  data: { triggeredBy: "cron" },
 });
 
 export default scrapeQueue;

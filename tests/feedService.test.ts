@@ -10,6 +10,8 @@ import {
   getAiringDramas,
   getPopularDramas,
   getCollaborativeFilters,
+  applyRRF,
+  deduplicateCollaborative,
 } from "../service/feed/feedService.js";
 
 const mockFrom = jest.fn<AnyFn>();
@@ -132,5 +134,95 @@ describe("getInitialFeed", () => {
 
     expect(mockFetch).not.toHaveBeenCalled();
     expect(result.page).toBe(2);
+  });
+});
+
+describe("deduplicateCollaborative", () => {
+  it("aggregates duplicate films by average rating", () => {
+    const films = [
+      { film_id: 1, rating: 4, film_name: "Drama A", genre_ids: [18] },
+      { film_id: 1, rating: 5, film_name: "Drama A", genre_ids: [18] },
+      { film_id: 2, rating: 4, film_name: "Drama B", genre_ids: [35] },
+    ];
+
+    const result = deduplicateCollaborative(films);
+
+    expect(result).toHaveLength(2);
+    expect(result[0]!.film_id).toBe(1);
+    expect(result[0]!.rating).toBe(4.5);
+    expect(result[1]!.film_id).toBe(2);
+    expect(result[1]!.rating).toBe(4);
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(deduplicateCollaborative([])).toEqual([]);
+  });
+
+  it("sorts by average rating descending", () => {
+    const films = [
+      { film_id: 1, rating: 4, film_name: "A", genre_ids: [] },
+      { film_id: 2, rating: 5, film_name: "B", genre_ids: [] },
+    ];
+
+    const result = deduplicateCollaborative(films);
+
+    expect(result[0]!.film_id).toBe(2);
+    expect(result[1]!.film_id).toBe(1);
+  });
+});
+
+describe("applyRRF", () => {
+  const film = (id: number, extra?: Partial<{ film_id: string; photo_url: string }>) => ({
+    tmdb_id: id,
+    title: `Film ${id}`,
+    release_year: "2024",
+    genre_ids: [18],
+    ...extra,
+  });
+
+  it("ranks items by weighted RRF score", () => {
+    const result = applyRRF([
+      { name: "recommended", items: [film(1), film(2), film(3)] as any },
+      { name: "popular", items: [film(4), film(5)] as any },
+    ]);
+
+    // recommended weight=1.0, popular weight=0.3
+    // film(1) score = 1.0/(60+1) = 0.01639
+    // film(4) score = 0.3/(60+1) = 0.00492
+    expect(result[0]!.tmdb_id).toBe(1);
+    expect(result.find((f) => f.tmdb_id === 4)).toBeTruthy();
+  });
+
+  it("boosts items appearing in multiple lists", () => {
+    const result = applyRRF([
+      { name: "recommended", items: [film(1), film(2), film(3)] as any },
+      { name: "collaborative", items: [film(3), film(4)] as any },
+    ]);
+
+    // film(3): recommended rank 3 = 1.0/(60+3) + collaborative rank 1 = 0.7/(60+1)
+    // film(2): recommended rank 2 = 1.0/(60+2) only
+    // film(3) should be boosted above film(2)
+    const idx3 = result.findIndex((f) => f.tmdb_id === 3);
+    const idx2 = result.findIndex((f) => f.tmdb_id === 2);
+    expect(idx3).toBeLessThan(idx2);
+  });
+
+  it("handles empty lists gracefully", () => {
+    const result = applyRRF([
+      { name: "recommended", items: [film(1)] as any },
+      { name: "collaborative", items: [] as any },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]!.tmdb_id).toBe(1);
+  });
+
+  it("prefers richer metadata when merging duplicates", () => {
+    const result = applyRRF([
+      { name: "recommended", items: [film(1, { film_id: "f1", photo_url: "/img.jpg" })] as any },
+      { name: "collaborative", items: [film(1)] as any },
+    ]);
+
+    expect(result[0]!.film_id).toBe("f1");
   });
 });

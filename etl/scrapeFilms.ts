@@ -134,6 +134,7 @@ const dedupeAndInsert = async () => {
   if (stagingError) {
     throw new Error(`Failed to read staging: ${stagingError.message}`);
   }
+  
   if (!stagingRows || stagingRows.length === 0) {
     console.log("[scrapeFilms] Staging is empty, nothing to dedupe");
     return;

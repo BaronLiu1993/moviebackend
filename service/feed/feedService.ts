@@ -3,7 +3,14 @@ import type { UUID } from "node:crypto";
 
 const TMDB_API_BASE = process.env.TMDB_API_BASE!;
 const TMDB_API_KEY = process.env.TMDB_API_KEY!;
-const MMR_LAMBDA = 0.8;
+const RRF_K = 60;
+const RRF_WEIGHTS = {
+  recommended: 1.0,
+  collaborative: 0.7,
+  popular: 0.3,
+  airing: 0.3,
+} as const;
+const DIVERSITY_PENALTY = 0.15;
 
 type FilmType = {
   tmdb_id: number;
@@ -187,45 +194,98 @@ const genreSimilarity = (a: number[], b: number[]): number => {
   return union > 0 ? intersection / union : 0;
 };
 
-//MMR = λ * relevance(item) - (1-λ) * max_similarity(item, selected_items)
-const applyMMR = (
-  candidates: FilmType[],
-  finalCount: number,
-  lambda: number = MMR_LAMBDA,
+type CollaborativeFilm = { film_id: number; rating: number; film_name: string; genre_ids: number[] };
+
+export const deduplicateCollaborative = (films: CollaborativeFilm[]): CollaborativeFilm[] => {
+  const map = new Map<number, { totalRating: number; count: number; film_name: string; genre_ids: number[] }>();
+
+  for (const film of films) {
+    const existing = map.get(film.film_id);
+    if (existing) {
+      existing.totalRating += film.rating;
+      existing.count += 1;
+    } else {
+      map.set(film.film_id, {
+        totalRating: film.rating,
+        count: 1,
+        film_name: film.film_name,
+        genre_ids: film.genre_ids,
+      });
+    }
+  }
+
+  return Array.from(map.entries())
+    .map(([film_id, val]) => ({
+      film_id,
+      rating: val.totalRating / val.count,
+      film_name: val.film_name,
+      genre_ids: val.genre_ids,
+    }))
+    .sort((a, b) => b.rating - a.rating);
+};
+
+type RankedList = {
+  name: keyof typeof RRF_WEIGHTS;
+  items: FilmType[];
+};
+
+export const applyRRF = (
+  lists: RankedList[],
+  k: number = RRF_K,
+  weights: Record<string, number> = RRF_WEIGHTS,
 ): FilmType[] => {
-  if (candidates.length <= finalCount) return candidates;
+  const scoreMap = new Map<number, { score: number; film: FilmType }>();
+
+  for (const list of lists) {
+    const w = weights[list.name] ?? 0;
+    for (let rank = 0; rank < list.items.length; rank++) {
+      const item = list.items[rank]!;
+      const contribution = w / (k + rank + 1);
+      const existing = scoreMap.get(item.tmdb_id);
+      if (existing) {
+        existing.score += contribution;
+        if (!existing.film.film_id && item.film_id) existing.film = item;
+      } else {
+        scoreMap.set(item.tmdb_id, { score: contribution, film: item });
+      }
+    }
+  }
+
+  return Array.from(scoreMap.values())
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.film);
+};
+
+const applyGenreDiversity = (
+  items: FilmType[],
+  finalCount: number,
+  penalty: number = DIVERSITY_PENALTY,
+): FilmType[] => {
+  if (items.length <= finalCount) return items;
 
   const selected: FilmType[] = [];
-  const remaining = [...candidates];
+  const remaining = [...items];
 
-  const first = remaining.shift();
-
-  if (!first) return selected;
-  selected.push(first);
+  selected.push(remaining.shift()!);
 
   while (selected.length < finalCount && remaining.length > 0) {
     let bestIdx = 0;
-    let bestScore = -Infinity;
+    let bestAdjustedScore = -Infinity;
 
     for (let i = 0; i < remaining.length; i++) {
       const candidate = remaining[i]!;
-      const relevance = candidate.similarity ?? 0;
-
-      const maxSimToSelected = Math.max(
-        ...selected.map((s) =>
-          genreSimilarity(candidate.genre_ids, s.genre_ids),
-        ),
+      const positionScore = 1 - i / remaining.length;
+      const maxGenreOverlap = Math.max(
+        ...selected.map((s) => genreSimilarity(candidate.genre_ids, s.genre_ids)),
       );
-
-      const mmrScore = lambda * relevance - (1 - lambda) * maxSimToSelected;
-      if (mmrScore > bestScore) {
-        bestScore = mmrScore;
+      const adjusted = positionScore - penalty * maxGenreOverlap;
+      if (adjusted > bestAdjustedScore) {
+        bestAdjustedScore = adjusted;
         bestIdx = i;
       }
     }
 
-    const next = remaining.splice(bestIdx, 1)[0];
-    if (next) selected.push(next);
+    selected.push(remaining.splice(bestIdx, 1)[0]!);
   }
 
   return selected;
@@ -353,12 +413,13 @@ export const getInitialFeed = async ({
 
     const data = recommendedFilms;
 
-    const standardizedCollaborative = collaborativeFilms.map((item) => ({
+    // Deduplicate collaborative films before ranking
+    const dedupedCollaborative = deduplicateCollaborative(collaborativeFilms);
+    const standardizedCollaborative = dedupedCollaborative.map((item) => ({
       tmdb_id: item.film_id,
       title: item.film_name,
       release_year: "",
       genre_ids: item.genre_ids || [],
-      similarity: item.rating / 5,
     }));
 
     const standardizedPopular = isFirstPage
@@ -369,7 +430,7 @@ export const getInitialFeed = async ({
           genre_ids: item.genre_ids || [],
           photo_url: item.poster_path
             ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
-            : null, 
+            : null,
         }))
       : [];
 
@@ -385,23 +446,25 @@ export const getInitialFeed = async ({
         }))
       : [];
 
-    const seen = new Set<number>();
-    const combined = [
-      ...data,
-      ...standardizedCollaborative,
-      ...standardizedPopular,
-      ...standardizedAiring,
-    ].filter((item: any) => {
-      if ((item.tags || []).includes(99)) return false;
-      if (seen.has(item.tmdb_id)) return false;
-      seen.add(item.tmdb_id);
-      return true;
-    });
+    // Build ranked lists for RRF (each pre-sorted by natural ordering)
+    const rankedLists: RankedList[] = [
+      { name: "recommended", items: data as FilmType[] },
+      { name: "collaborative", items: standardizedCollaborative as FilmType[] },
+      ...(isFirstPage
+        ? [
+            { name: "popular" as const, items: standardizedPopular as FilmType[] },
+            { name: "airing" as const, items: standardizedAiring as FilmType[] },
+          ]
+        : []),
+    ];
 
-    const films = applyMMR(combined as FilmType[], pageSize, MMR_LAMBDA);
+    const fused = applyRRF(rankedLists);
+    const filtered = fused.filter((item: any) => !(item.tags || []).includes(99));
+    const films = applyGenreDiversity(filtered, pageSize);
+
     const hasMore = data.length >= RPC_BATCH_SIZE;
     console.log(
-      `[getInitialFeed] page=${page}, returned=${films.length}, hasMore=${hasMore} (candidates: ${combined.length}, personalized: ${data.length}, collaborative: ${standardizedCollaborative.length}, popular: ${standardizedPopular.length}, airing: ${standardizedAiring.length})`,
+      `[getInitialFeed] page=${page}, returned=${films.length}, hasMore=${hasMore} (fused: ${fused.length}, personalized: ${data.length}, collaborative: ${standardizedCollaborative.length}, popular: ${standardizedPopular.length}, airing: ${standardizedAiring.length})`,
     );
 
     return { films, page, pageSize, hasMore };
