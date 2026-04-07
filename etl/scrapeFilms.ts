@@ -86,42 +86,125 @@ const fetchAllFilms = async (country: string): Promise<TmdbResultType[]> => {
     Promise.all(pages.map((p) => fetchDiscoverPage(country, p, "tv"))),
     Promise.all(pages.map((p) => fetchDiscoverPage(country, p, "movie"))),
   ]);
-  // Return combined results, filter in the temp table stage
   return [...tvResults.flat(), ...movieResults.flat()];
 };
 
-  
+const upsertToStaging = async (films: TmdbResultType[]) => {
+  const supabase = createServerSideSupabaseClient();
+  const rows = films.map((f) => ({
+    tmdb_id: f.id,
+    name: f.name ?? null,
+    title: f.title ?? null,
+    original_name: f.original_name ?? null,
+    original_title: f.original_title ?? null,
+    overview: f.overview ?? null,
+    first_air_date: f.first_air_date ?? null,
+    release_date: f.release_date ?? null,
+    origin_country: f.origin_country ?? [],
+    popularity: f.popularity ?? 0,
+    media_type: f.media_type,
+  }));
 
-// Atomic operation to insert films into database
-const bulkInsertFilms = async (films: TmdbResultType[]) => {
-  try {
-    const supabase = createServerSideSupabaseClient();
-    const { error: filmInsertionError } = await supabase
-      .from("Films")
-      .insert(films);
-    if (filmInsertionError) {
-      throw new Error("Failed to insert films: " + filmInsertionError?.message);
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const batch = rows.slice(i, i + BATCH_SIZE);
+    const { error } = await supabase
+      .from("Films_Staging")
+      .upsert(batch, { onConflict: "tmdb_id" });
+
+    if (error) {
+      throw new Error(`Failed to upsert staging batch: ${error.message}`);
     }
-    console.log(`Inserted ${films.length} films successfully.`);
-  } catch (err) {
-    console.error("Error inserting films into database", err);
-    throw new Error("Failed to insert films");
   }
+  console.log(`[scrapeFilms] Upserted ${rows.length} films to staging`);
+};
+
+const dedupeAndInsert = async () => {
+  const supabase = createServerSideSupabaseClient();
+
+  // Fetch all tmdb_ids from staging
+  const { data: stagingRows, error: stagingError } = await supabase
+    .from("Films_Staging")
+    .select("tmdb_id");
+
+  if (stagingError) {
+    throw new Error(`Failed to read staging: ${stagingError.message}`);
+  }
+  if (!stagingRows || stagingRows.length === 0) {
+    console.log("[scrapeFilms] Staging is empty, nothing to dedupe");
+    return;
+  }
+
+  const stagingIds = stagingRows.map((r) => r.tmdb_id);
+
+  // Fetch existing tmdb_ids from Guanghai
+  const { data: existingRows, error: existingError } = await supabase
+    .from("Guanghai")
+    .select("tmdb_id")
+    .in("tmdb_id", stagingIds);
+
+  if (existingError) {
+    throw new Error(`Failed to read Guanghai: ${existingError.message}`);
+  }
+
+  const existingSet = new Set((existingRows ?? []).map((r) => r.tmdb_id));
+  const newIds = stagingIds.filter((id) => !existingSet.has(id));
+
+  if (newIds.length === 0) {
+    console.log("[scrapeFilms] No new films to insert into Guanghai");
+    return;
+  }
+
+  // Fetch full rows from staging for new films only
+  const { data: newFilms, error: fetchError } = await supabase
+    .from("Films_Staging")
+    .select("*")
+    .in("tmdb_id", newIds);
+
+  if (fetchError) {
+    throw new Error(`Failed to fetch new films from staging: ${fetchError.message}`);
+  }
+
+  // Insert into Guanghai in batches
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < newFilms!.length; i += BATCH_SIZE) {
+    const batch = newFilms!.slice(i, i + BATCH_SIZE);
+    const { error: insertError } = await supabase
+      .from("Guanghai")
+      .insert(batch);
+
+    if (insertError) {
+      throw new Error(`Failed to insert into Guanghai: ${insertError.message}`);
+    }
+  }
+  console.log(`[scrapeFilms] Inserted ${newFilms!.length} new films into Guanghai`);
+};
+
+const clearStaging = async () => {
+  const supabase = createServerSideSupabaseClient();
+  const { error } = await supabase
+    .from("Films_Staging")
+    .delete()
+    .neq("tmdb_id", 0); // delete all rows
+
+  if (error) {
+    throw new Error(`Failed to clear staging: ${error.message}`);
+  }
+  console.log("[scrapeFilms] Staging table cleared");
 };
 
 const scrapeFilms = async () => {
-  try {
-    for (const country of COUNTRIES) {
-      console.log(`Fetching films for country: ${country}`);
-      const films = await fetchAllFilms(country);
-      console.log(`Fetched ${films.length} films for country: ${country}`);
-      await bulkInsertFilms(films);
-    }
-    console.log("Finished scraping films for all countries.");
-  } catch (err) {
-    console.error("Error fetching films from TMDB", err);
-    throw new Error("Failed to fetch films from TMDB");
+  console.log("[scrapeFilms] Starting scrape...");
+  for (const country of COUNTRIES) {
+    console.log(`[scrapeFilms] Fetching films for country: ${country}`);
+    const films = await fetchAllFilms(country);
+    console.log(`[scrapeFilms] Fetched ${films.length} films for ${country}`);
+    await upsertToStaging(films);
   }
+
+  await dedupeAndInsert();
+  await clearStaging();
+  console.log("[scrapeFilms] Scrape pipeline complete");
 };
 
 export default scrapeFilms;
