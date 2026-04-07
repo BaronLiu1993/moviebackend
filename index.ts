@@ -14,6 +14,7 @@ import bookmarkRouter from "./router/bookmark/bookmarkRouter.js"
 
 // Workers
 import './queue/updateEmbedding/updateEmbeddingWorker.js';
+import './queue/impression/addImpressionWorker.js';
 
 const app = express()
 
@@ -31,21 +32,21 @@ app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded());
 
+const limiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use(limiter);
+
 app.use("/v1/api/auth", authRouter)
 app.use("/v1/api/feed", feedRouter)
 app.use("/v1/api/rate", rateRouter)
 app.use("/v1/api/friend", friendRouter)
 
 app.use("/v1/api/bookmark", bookmarkRouter)
-
-const limiter = rateLimit({
-  windowMs: 1 * 60 * 1000,  
-  max: 200,                
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.use(limiter);
 
 app.get("/health", (req, res) => {
     return res.status(200).json({ status: "ok"})

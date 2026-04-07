@@ -9,7 +9,6 @@ const MIN_POPULARITY = 10;
 const EXCLUDED_GENRES = "10764,10763,10767,10762";
 
 type MediaType = "tv" | "movie";
-
 type TmdbResultType = {
   id: number;
   name?: string;
@@ -32,7 +31,6 @@ type TmdbDiscoverResponseType = {
 };
 
 // Build Requests
-const headers = { Authorization: `Bearer ${TMDB_API_KEY}` };
 const buildDiscoverParams = (
   country: string,
   page: number,
@@ -65,14 +63,14 @@ const fetchDiscoverPage = async (
   const params = buildDiscoverParams(country, page, mediaType);
   const res = await fetch(
     `${TMDB_API_BASE}/3/discover/${mediaType}?${params.toString()}`,
-    { headers },
+    { headers: { Authorization: `Bearer ${TMDB_API_KEY}` } },
   );
 
   if (!res.ok) {
     console.error(
       `[fetchDiscoverPage] TMDB error - ${mediaType} country=${country} page=${page} status=${res.status}`,
     );
-    return [];
+    throw new Error(`TMDB API error: ${res.statusText}`);
   }
 
   const data = (await res.json()) as TmdbDiscoverResponseType;
@@ -81,26 +79,20 @@ const fetchDiscoverPage = async (
     .map((r) => ({ ...r, media_type: mediaType }));
 };
 
-const fetchAllForCountry = async (country: string): Promise<TmdbResultType[]> => {
+const fetchAllFilms = async (country: string): Promise<TmdbResultType[]> => {
   const pages = Array.from({ length: PAGES_TO_FETCH }, (_, i) => i + 1);
 
   const [tvResults, movieResults] = await Promise.all([
     Promise.all(pages.map((p) => fetchDiscoverPage(country, p, "tv"))),
     Promise.all(pages.map((p) => fetchDiscoverPage(country, p, "movie"))),
   ]);
-
-  const deduped = new Map<string, TmdbResultType>();
-
-  for (const result of [...tvResults.flat(), ...movieResults.flat()]) {
-    const key = `${result.media_type}-${result.id}`;
-    if (!deduped.has(key)) {
-      deduped.set(key, result);
-    }
-  }
-
-  return [...deduped.values()];
+  // Return combined results, filter in the temp table stage
+  return [...tvResults.flat(), ...movieResults.flat()];
 };
 
+  
+
+// Atomic operation to insert films into database
 const bulkInsertFilms = async (films: TmdbResultType[]) => {
   try {
     const supabase = createServerSideSupabaseClient();
@@ -121,13 +113,13 @@ const scrapeFilms = async () => {
   try {
     for (const country of COUNTRIES) {
       console.log(`Fetching films for country: ${country}`);
-      const films = await fetchAllForCountry(country);
+      const films = await fetchAllFilms(country);
       console.log(`Fetched ${films.length} films for country: ${country}`);
       await bulkInsertFilms(films);
     }
     console.log("Finished scraping films for all countries.");
-  } catch {
-    console.error("Error fetching films from TMDB");
+  } catch (err) {
+    console.error("Error fetching films from TMDB", err);
     throw new Error("Failed to fetch films from TMDB");
   }
 };
