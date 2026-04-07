@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { verifyToken } from "../../middleware/verifyToken.js";
 import scrapeQueue from "../../queue/scrape/scrapeQueue.js";
+import { verifyAdminToken } from "../../middleware/verifyAdminToken.js";
 
 const router = Router();
 
-router.post("/scrape", verifyToken, async (_req, res) => {
+router.post("/scrape", verifyAdminToken, async (_req, res) => {
   try {
     await scrapeQueue.add("scrape-films", {});
     return res.status(202).json({ message: "Scrape job enqueued" });
