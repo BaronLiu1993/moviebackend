@@ -99,11 +99,15 @@ const isAdultTitle = (film: TmdbResultType): boolean => {
 };
 
 const hasRequiredData = (film: TmdbResultType): boolean => {
-  const hasTitle = !!(film.name || film.title || film.original_name || film.original_title);
-  const hasDate = !!(film.first_air_date || film.release_date);
-  const hasOverview = !!(film.overview && film.overview.trim().length > 0);
   const hasId = !!film.id;
-  return hasTitle && hasDate && hasOverview && hasId;
+  const hasTitle = !!(film.name || film.title || film.original_name || film.original_title);
+  const hasOverview = !!(film.overview && film.overview.trim().length > 0);
+  const hasDate = !!(film.first_air_date || film.release_date);
+  const hasGenres = !!(film.genre_ids && film.genre_ids.length > 0);
+  const hasPoster = !!(film.poster_path && film.poster_path.trim().length > 0);
+  const hasPopularity = typeof film.popularity === "number" && film.popularity > 0;
+  const hasCountry = !!(film.origin_country && film.origin_country.length > 0);
+  return hasId && hasTitle && hasOverview && hasDate && hasGenres && hasPoster && hasPopularity && hasCountry;
 };
 
 const fetchAllFilms = async (country: string): Promise<TmdbResultType[]> => {
