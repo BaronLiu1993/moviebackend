@@ -40,5 +40,15 @@ export type InsertRatingInput = z.infer<typeof insertRatingRequestSchema>;
 export type UpdateRatingInput = z.infer<typeof updateRatingRequestSchema>;
 export type DeleteRatingInput = z.infer<typeof deleteRatingRequestSchema>;
 export type RatingResponse = z.infer<typeof ratingResponseSchema>;
+export const likeRatingRequestSchema = z.object({
+  ratingId: z.string().uuid(),
+});
+
+export const unlikeRatingRequestSchema = z.object({
+  ratingId: z.string().uuid(),
+});
+
 export type LikeRequest = z.infer<typeof likeRequestSchema>;
 export type UnlikeRequest = z.infer<typeof unlikeRequestSchema>;
+export type LikeRatingRequest = z.infer<typeof likeRatingRequestSchema>;
+export type UnlikeRatingRequest = z.infer<typeof unlikeRatingRequestSchema>;

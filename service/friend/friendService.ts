@@ -28,7 +28,7 @@ type GetProfileRequest = {
 };
 
 // Checks whether two users have an accepted friendship relationship
-const checkIsFriends = async (
+export const checkIsFriends = async (
   supabaseClient: SupabaseClient,
   userId: UUID,
   friendId: UUID
@@ -322,29 +322,52 @@ export const getProfile = async ({
       throw new Error("Users are not friends");
     }
 
-    const { data: ratings, error: ratingsError } = await supabaseClient
-      .from("Ratings")
-      .select("film_id, rating, note, film_name")
-      .eq("user_id", friendId);
+    const [ratingsResult, profileResult] = await Promise.all([
+      supabaseClient
+        .from("Ratings")
+        .select("rating_id, film_id, rating, note, film_name, like_count")
+        .eq("user_id", friendId),
+      supabaseClient
+        .from("User_Profiles")
+        .select("genres, movies")
+        .eq("user_id", friendId)
+        .single(),
+    ]);
 
-    if (ratingsError) {
-      console.error(`[getProfile] Error fetching ratings for friend ${friendId}:`, ratingsError);
-      throw new Error(`Failed to fetch ratings: ${ratingsError.message}`);
+    if (ratingsResult.error) {
+      console.error(`[getProfile] Error fetching ratings for friend ${friendId}:`, ratingsResult.error);
+      throw new Error(`Failed to fetch ratings: ${ratingsResult.error.message}`);
     }
 
-    const { data: profile, error: profileError } = await supabaseClient
-      .from("User_Profiles")
-      .select("genres, movies")
-      .eq("user_id", friendId)
-      .single();
-
-    if (profileError || !profile) {
-      console.error(`[getProfile] Error fetching profile for friend ${friendId}:`, profileError);
-      throw new Error(`Failed to fetch user profile: ${profileError?.message}`);
+    if (profileResult.error || !profileResult.data) {
+      console.error(`[getProfile] Error fetching profile for friend ${friendId}:`, profileResult.error);
+      throw new Error(`Failed to fetch user profile: ${profileResult.error?.message}`);
     }
+
+    const ratings = ratingsResult.data;
+    const profile = profileResult.data;
+
+    // Enrich ratings with has_liked for the requesting user
+    const ratingIds = ratings.map((r: any) => r.rating_id);
+    let userLikeSet = new Set<string>();
+
+    if (ratingIds.length > 0) {
+      const { data: userLikes } = await supabaseClient
+        .from("Rating_Likes")
+        .select("rating_id")
+        .in("rating_id", ratingIds)
+        .eq("user_id", userId);
+
+      userLikeSet = new Set((userLikes ?? []).map((l: any) => l.rating_id));
+    }
+
+    const enrichedRatings = ratings.map((r: any) => ({
+      ...r,
+      has_liked: userLikeSet.has(r.rating_id),
+    }));
 
     return {
-      ratings,
+      ratings: enrichedRatings,
       profile,
     };
   } catch (err) {

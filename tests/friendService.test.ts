@@ -197,30 +197,38 @@ describe("getFollowing", () => {
 });
 
 describe("getProfile", () => {
-  it("returns friend profile and ratings when users are friends", async () => {
+  it("returns friend profile and ratings with like data", async () => {
     mockRpc.mockResolvedValueOnce({ data: true, error: null });
 
-    const ratings = [{ film_id: 1, rating: 5, note: "great", film_name: "Drama" }];
+    const ratings = [{ rating_id: "r1", film_id: 1, rating: 5, note: "great", film_name: "Drama", like_count: 2 }];
     const eqRatings = jest.fn<AnyFn>().mockResolvedValue({ data: ratings, error: null });
     const selectRatings = jest.fn<AnyFn>().mockReturnValue({ eq: eqRatings });
 
     const singleProfile = jest.fn<AnyFn>().mockResolvedValue({
-      data: { genre: ["drama"], movie: ["Squid Game"] },
+      data: { genres: ["drama"], movies: ["Squid Game"] },
       error: null,
     });
     const eqProfile = jest.fn<AnyFn>().mockReturnValue({ single: singleProfile });
     const selectProfile = jest.fn<AnyFn>().mockReturnValue({ eq: eqProfile });
 
+    // Rating_Likes query for has_liked
+    const eqLikesUser = jest.fn<AnyFn>().mockResolvedValue({ data: [{ rating_id: "r1" }], error: null });
+    const inLikes = jest.fn<AnyFn>().mockReturnValue({ eq: eqLikesUser });
+    const selectLikes = jest.fn<AnyFn>().mockReturnValue({ in: inLikes });
+
     mockFrom
       .mockReturnValueOnce({ select: selectRatings })
-      .mockReturnValueOnce({ select: selectProfile });
+      .mockReturnValueOnce({ select: selectProfile })
+      .mockReturnValueOnce({ select: selectLikes });
 
     const result = await getProfile({ supabaseClient, userId, friendId });
 
-    expect(result).toEqual({
-      ratings,
-      profile: { genre: ["drama"], movie: ["Squid Game"] },
+    expect(result.ratings[0]).toMatchObject({
+      rating_id: "r1",
+      like_count: 2,
+      has_liked: true,
     });
+    expect(result.profile).toEqual({ genres: ["drama"], movies: ["Squid Game"] });
   });
 
   it("throws if users are not friends", async () => {

@@ -10,10 +10,11 @@ const client = createClient({
 interface Interaction {
   userId: string;
   tmdbId: number;
-  interactionType: "like" | "rating" | "bookmark";
+  interactionType: "like" | "rating" | "bookmark" | "rating_like";
   rating?: number | undefined;
   genre_ids?: number[] | undefined;
   film_name?: string | undefined;
+  rating_id?: string | undefined;
 }
 
 interface Impression {
@@ -29,7 +30,7 @@ interface Impression {
 }
 
 export async function insertInteractionEvents(event: Interaction) {
-  const { userId, tmdbId, interactionType, rating, genre_ids, film_name } =
+  const { userId, tmdbId, interactionType, rating, genre_ids, film_name, rating_id } =
     event;
   await client.insert({
     table: "interactions",
@@ -41,6 +42,7 @@ export async function insertInteractionEvents(event: Interaction) {
         rating: rating,
         genre_ids: genre_ids,
         film_name: film_name,
+        rating_id: rating_id ?? "",
         created_at: new Date(),
       },
     ],

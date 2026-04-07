@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 import { insertInteractionEvents } from "../clickhouse/clickhouseService.js";
+import { checkIsFriends } from "../friend/friendService.js";
 import updateEmbeddingQueue from "../../queue/updateEmbedding/updateEmbeddingQueue.js";
 
 type SelectRatingType = { 
@@ -159,4 +160,94 @@ export const updateRating = async ({
     rating: newRating,
     oldRating: ratingData.rating,
   });
+};
+
+type LikeRatingType = {
+  supabaseClient: SupabaseClient;
+  userId: UUID;
+  ratingId: UUID;
+};
+
+export const likeRating = async ({ supabaseClient, userId, ratingId }: LikeRatingType) => {
+  try {
+    const { data: rating, error: fetchError } = await supabaseClient
+      .from("Ratings")
+      .select("user_id, like_count, tmdb_id, film_name, genre_ids")
+      .eq("rating_id", ratingId)
+      .single();
+
+    if (fetchError || !rating) {
+      console.error(`[likeRating] Rating ${ratingId} not found:`, fetchError);
+      throw new Error("Rating not found");
+    }
+
+    if (rating.user_id === userId) {
+      throw new Error("Cannot like your own rating");
+    }
+
+    const isFriend = await checkIsFriends(supabaseClient, userId, rating.user_id);
+    if (!isFriend) {
+      throw new Error("Users are not friends");
+    }
+
+    const { error: insertError } = await supabaseClient
+      .from("Rating_Likes")
+      .insert({ rating_id: ratingId, user_id: userId });
+
+    if (insertError) {
+      if (insertError.code === "23505") throw new Error("Already liked this rating");
+      console.error(`[likeRating] Insert error:`, insertError);
+      throw new Error("Failed to like rating");
+    }
+
+    await supabaseClient
+      .from("Ratings")
+      .update({ like_count: (rating.like_count ?? 0) + 1 })
+      .eq("rating_id", ratingId);
+
+    await insertInteractionEvents({
+      userId,
+      tmdbId: rating.tmdb_id,
+      interactionType: "rating_like",
+      rating_id: ratingId,
+      film_name: rating.film_name,
+      genre_ids: rating.genre_ids,
+      rating: 0,
+    });
+  } catch (err) {
+    console.error(`[likeRating] Exception:`, err);
+    throw err;
+  }
+};
+
+export const unlikeRating = async ({ supabaseClient, userId, ratingId }: LikeRatingType) => {
+  try {
+    const { error: deleteError } = await supabaseClient
+      .from("Rating_Likes")
+      .delete()
+      .eq("rating_id", ratingId)
+      .eq("user_id", userId);
+
+    if (deleteError) {
+      console.error(`[unlikeRating] Delete error:`, deleteError);
+      throw new Error("Failed to unlike rating");
+    }
+
+    // Decrement like_count (floor at 0)
+    const { data: rating } = await supabaseClient
+      .from("Ratings")
+      .select("like_count")
+      .eq("rating_id", ratingId)
+      .single();
+
+    if (rating) {
+      await supabaseClient
+        .from("Ratings")
+        .update({ like_count: Math.max((rating.like_count ?? 0) - 1, 0) })
+        .eq("rating_id", ratingId);
+    }
+  } catch (err) {
+    console.error(`[unlikeRating] Exception:`, err);
+    throw err;
+  }
 };
