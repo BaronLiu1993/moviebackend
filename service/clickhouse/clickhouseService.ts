@@ -4,7 +4,7 @@ const client = createClient({
   url: process.env.CLICKHOUSE_URL || "http://localhost:8123",
   username: process.env.CLICKHOUSE_USER || "default",
   password: process.env.CLICKHOUSE_PASSWORD || "default",
-  database: "default",
+  database: process.env.CLICKHOUSE_DATABASE || "default",
 });
 
 interface Interaction {
@@ -22,8 +22,8 @@ interface Impression {
   sessionId: string;
   position: number;
   surface: string;
-  genre_ids: number[];
-  film_name: string;
+  genre_ids?: number[];
+  film_name?: string;
   embedding_similarity?: number;
   genre_overlap?: number;
 }
@@ -49,7 +49,7 @@ export async function insertInteractionEvents(event: Interaction) {
 }
 
 export async function insertImpressionEvent(event: Impression) {
-  const { userId, tmdbId, position, surface, sessionId, genre_ids, film_name,
+  const { userId, tmdbId, position, surface, sessionId, genre_ids = [], film_name = "",
     embedding_similarity = 0, genre_overlap = 0 } = event;
   await client.insert({
     table: "impressions",
