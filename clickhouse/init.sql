@@ -20,9 +20,11 @@ CREATE TABLE IF NOT EXISTS impressions (
   session_id  String,
   position    UInt16,
   surface     String    DEFAULT 'feed',
-  genre_ids   Array(UInt32) DEFAULT [],
-  film_name   String    DEFAULT '',
-  created_at  DateTime  DEFAULT now()
+  genre_ids             Array(UInt32) DEFAULT [],
+  film_name             String    DEFAULT '',
+  embedding_similarity  Float32   DEFAULT 0,
+  genre_overlap         Float32   DEFAULT 0,
+  created_at            DateTime  DEFAULT now()
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(created_at)
 ORDER BY (user_id, created_at, tmdb_id)

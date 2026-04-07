@@ -24,6 +24,8 @@ interface Impression {
   surface: string;
   genre_ids: number[];
   film_name: string;
+  embedding_similarity?: number;
+  genre_overlap?: number;
 }
 
 export async function insertInteractionEvents(event: Interaction) {
@@ -47,8 +49,8 @@ export async function insertInteractionEvents(event: Interaction) {
 }
 
 export async function insertImpressionEvent(event: Impression) {
-  const { userId, tmdbId, position, surface, sessionId, genre_ids, film_name } =
-    event;
+  const { userId, tmdbId, position, surface, sessionId, genre_ids, film_name,
+    embedding_similarity = 0, genre_overlap = 0 } = event;
   await client.insert({
     table: "impressions",
     values: [
@@ -60,6 +62,8 @@ export async function insertImpressionEvent(event: Impression) {
         surface: surface,
         genre_ids: genre_ids,
         film_name: film_name,
+        embedding_similarity,
+        genre_overlap,
         created_at: new Date(),
       },
     ],
@@ -75,6 +79,8 @@ export async function generateTrainingData() {
       i.tmdb_id,
       IF(ix.tmdb_id IS NOT NULL, 1, 0) AS label,
 
+      i.embedding_similarity,
+      i.genre_overlap,
       i.position                        AS display_position,
       i.surface,
       toHour(i.created_at)              AS hour_of_day,
@@ -106,7 +112,7 @@ export async function generateTrainingData() {
 
     WHERE i.created_at >= now() - INTERVAL 90 DAY
 
-    GROUP BY i.user_id, i.tmdb_id, i.position, i.surface, i.created_at, label
+    GROUP BY i.user_id, i.tmdb_id, i.embedding_similarity, i.genre_overlap, i.position, i.surface, i.created_at, label
     ORDER BY i.user_id, i.created_at
   `,
     format: "JSONEachRow",

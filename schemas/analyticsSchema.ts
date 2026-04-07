@@ -15,6 +15,8 @@ const impressionSchema = z.object({
     surface: z.string().min(1),
     film_name: z.string().optional(),
     genre_ids: z.array(z.number().int()).optional(),
+    embedding_similarity: z.number().min(-1).max(1).optional(),
+    genre_overlap: z.number().min(0).max(1).optional(),
 });
 
 export const bulkImpressionsRequestSchema = z.object({

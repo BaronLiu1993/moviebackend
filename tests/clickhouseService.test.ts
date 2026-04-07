@@ -70,6 +70,8 @@ describe("insertImpressionEvent", () => {
       surface: "feed",
       genre_ids: [18],
       film_name: "Drama Y",
+      embedding_similarity: 0.85,
+      genre_overlap: 0.5,
     });
 
     expect(mockInsert).toHaveBeenCalledWith({
@@ -83,7 +85,34 @@ describe("insertImpressionEvent", () => {
           surface: "feed",
           genre_ids: [18],
           film_name: "Drama Y",
+          embedding_similarity: 0.85,
+          genre_overlap: 0.5,
           created_at: expect.any(Date),
+        }),
+      ],
+      format: "JSONEachRow",
+    });
+  });
+
+  it("defaults similarity fields to 0 when not provided", async () => {
+    mockInsert.mockResolvedValueOnce(undefined);
+
+    await insertImpressionEvent({
+      userId: "u1",
+      tmdbId: 42,
+      sessionId: "sess-1",
+      position: 0,
+      surface: "feed",
+      genre_ids: [],
+      film_name: "Drama Z",
+    });
+
+    expect(mockInsert).toHaveBeenCalledWith({
+      table: "impressions",
+      values: [
+        expect.objectContaining({
+          embedding_similarity: 0,
+          genre_overlap: 0,
         }),
       ],
       format: "JSONEachRow",
