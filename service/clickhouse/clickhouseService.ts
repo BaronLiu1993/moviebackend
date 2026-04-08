@@ -29,25 +29,33 @@ interface Impression {
   genre_overlap?: number;
 }
 
+const clickhouseNow = () => new Date().toISOString().slice(0, 19).replace("T", " ");
+
 export async function insertInteractionEvents(event: Interaction) {
   const { userId, tmdbId, interactionType, rating, genre_ids, film_name, rating_id } =
     event;
-  await client.insert({
-    table: "interactions",
-    values: [
-      {
-        user_id: userId,
-        tmdb_id: tmdbId,
-        interaction_type: interactionType,
-        rating: rating,
-        genre_ids: genre_ids,
-        film_name: film_name,
-        rating_id: rating_id ?? "",
-        created_at: new Date(),
-      },
-    ],
-    format: "JSONEachRow",
-  });
+  try {
+    await client.insert({
+      table: "interactions",
+      values: [
+        {
+          user_id: userId,
+          tmdb_id: tmdbId,
+          interaction_type: interactionType,
+          rating: rating,
+          genre_ids: genre_ids,
+          film_name: film_name,
+          rating_id: rating_id ?? "",
+          created_at: clickhouseNow(),
+        },
+      ],
+      format: "JSONEachRow",
+    });
+    console.log(`[ClickHouse] Inserted interaction: ${interactionType} user=${userId} film=${tmdbId}`);
+  } catch (err) {
+    console.error(`[ClickHouse] Failed to insert interaction:`, err);
+    throw err;
+  }
 }
 
 export async function insertImpressionEvent(event: Impression) {
@@ -66,7 +74,7 @@ export async function insertImpressionEvent(event: Impression) {
         film_name: film_name,
         embedding_similarity,
         genre_overlap,
-        created_at: new Date(),
+        created_at: clickhouseNow(),
       },
     ],
     format: "JSONEachRow",
