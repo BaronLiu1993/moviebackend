@@ -10,7 +10,7 @@ import feedRouter from "./router/feed/feedRouter.js"
 import rateRouter from "./router/rate/rateRouter.js"
 import friendRouter from './router/friend/friendRouter.js';
 
-import bookmarkRouter from "./router/bookmark/bookmarkRouter.js"
+import listRouter from "./router/list/listRouter.js"
 import adminRouter from "./router/admin/adminRouter.js"
 
 // Workers
@@ -48,7 +48,7 @@ app.use("/v1/api/feed", feedRouter)
 app.use("/v1/api/rate", rateRouter)
 app.use("/v1/api/friend", friendRouter)
 
-app.use("/v1/api/bookmark", bookmarkRouter)
+app.use("/v1/api/list", listRouter)
 app.use("/v1/api/admin", adminRouter)
 
 app.get("/health", (req, res) => {

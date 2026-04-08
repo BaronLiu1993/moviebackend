@@ -5,6 +5,7 @@
 
 import { createSignInSupabase, createSupabaseClient } from "../supabase/configureSupabase.js";
 import { fetchTmdbOverview, fetchTmdbKeywords } from "../tmdb/tmdbService.js";
+import { createDefaultWatchlist } from "../list/listService.js";
 import OpenAI from "openai";
 import dotenv from "dotenv";
 import type { UUID } from "node:crypto";
@@ -200,4 +201,6 @@ export const registerUser = async ({
   if (error) {
     throw new Error("Failed to update profile");
   }
+
+  await createDefaultWatchlist({ supabaseClient, userId });
 };

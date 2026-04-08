@@ -135,9 +135,14 @@ describe("registerUser", () => {
     const eqUpdate = jest.fn<AnyFn>().mockResolvedValue({ error: null });
     const updateFn = jest.fn<AnyFn>().mockReturnValue({ eq: eqUpdate });
 
+    const watchlistSingle = jest.fn<AnyFn>().mockResolvedValue({ data: { list_id: "wl1" }, error: null });
+    const watchlistSelect = jest.fn<AnyFn>().mockReturnValue({ single: watchlistSingle });
+    const watchlistInsert = jest.fn<AnyFn>().mockReturnValue({ select: watchlistSelect });
+
     mockUserSupabase.from
       .mockReturnValueOnce({ select: selectCheck })
-      .mockReturnValueOnce({ update: updateFn });
+      .mockReturnValueOnce({ update: updateFn })
+      .mockReturnValueOnce({ insert: watchlistInsert });
 
     mockEmbeddingsCreate.mockResolvedValueOnce({
       data: [{ embedding: new Array(384).fill(0.1) }],
@@ -153,6 +158,9 @@ describe("registerUser", () => {
         completed_registration: true,
         genres: ["drama", "romance"],
       })
+    );
+    expect(watchlistInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Watchlist", is_default: true })
     );
   });
 
@@ -193,9 +201,14 @@ describe("registerUser", () => {
     const eqUpdate = jest.fn<AnyFn>().mockResolvedValue({ error: null });
     const updateFn = jest.fn<AnyFn>().mockReturnValue({ eq: eqUpdate });
 
+    const watchlistSingle = jest.fn<AnyFn>().mockResolvedValue({ data: { list_id: "wl1" }, error: null });
+    const watchlistSelect = jest.fn<AnyFn>().mockReturnValue({ single: watchlistSingle });
+    const watchlistInsert = jest.fn<AnyFn>().mockReturnValue({ select: watchlistSelect });
+
     mockUserSupabase.from
       .mockReturnValueOnce({ select: selectCheck })
-      .mockReturnValueOnce({ update: updateFn });
+      .mockReturnValueOnce({ update: updateFn })
+      .mockReturnValueOnce({ insert: watchlistInsert });
 
     mockEmbeddingsCreate.mockResolvedValueOnce({
       data: [{ embedding: new Array(384).fill(0.1) }],
