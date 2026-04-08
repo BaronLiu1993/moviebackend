@@ -90,3 +90,7 @@ def main():
     }
 
     json.dump(result, sys.stdout)
+
+
+if __name__ == "__main__":
+    main()
