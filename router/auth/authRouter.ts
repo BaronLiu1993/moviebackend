@@ -48,6 +48,7 @@ router.put("/register", verifyToken, validateZod(registerRequestSchema), async (
     await registerUser({ userId, genres, movies, moods, dislikedGenres, movieIds, supabaseClient });
     return res.status(204).send();
   } catch (err) {
+    console.log(err)
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

@@ -120,7 +120,10 @@ describe("registerUser", () => {
   const mockUserSupabase = { from: jest.fn<AnyFn>() } as any;
   const baseArgs = {
     userId: "uid-1" as any,
-    genres: "drama,romance",
+    genres: ["drama", "romance"],
+    movies: [] as string[],
+    moods: [] as string[],
+    dislikedGenres: [] as string[],
     supabaseClient: mockUserSupabase,
   };
 
@@ -216,10 +219,10 @@ describe("registerUser", () => {
 
     await registerUser({
       ...baseArgs,
-      movies: "Squid Game",
+      movies: ["Squid Game"],
       movieIds: [12345],
-      moods: "tense,dramatic",
-      dislikedGenres: "horror",
+      moods: ["tense", "dramatic"],
+      dislikedGenres: ["horror"],
     });
 
     expect(updateFn).toHaveBeenCalledWith(

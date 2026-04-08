@@ -24,10 +24,10 @@ interface ProfileChangeRequest {
 
 interface RegisterUserRequest {
   userId: UUID;
-  genres: string;
-  movies?: string;
-  moods?: string;
-  dislikedGenres?: string;
+  genres: string[];
+  movies: string[];
+  moods: string[];
+  dislikedGenres: string[];
   movieIds?: number[];
   supabaseClient: SupabaseClient;
 }
@@ -136,10 +136,7 @@ export const registerUser = async ({
   movieIds,
   supabaseClient,
 }: RegisterUserRequest): Promise<void> => {
-  // Fetch TMDB overviews for selected movies
-  const movieTitles = movies
-    ? movies.split(",").map((m: string) => m.trim())
-    : [];
+  const movieTitles = movies ?? [];
 
   let movieDescriptions: string[] = [];
 
@@ -170,9 +167,9 @@ export const registerUser = async ({
 
   // Build structured natural-language input string
   const parts: string[] = [];
-  parts.push(`Favorite genres: ${genres}.`);
-  if (moods) parts.push(`Mood preferences: ${moods}.`);
-  if (dislikedGenres) parts.push(`Dislikes: ${dislikedGenres}.`);
+  parts.push(`Favorite genres: ${genres.join(", ")}.`);
+  if (moods.length > 0) parts.push(`Mood preferences: ${moods.join(", ")}.`);
+  if (dislikedGenres.length > 0) parts.push(`Dislikes: ${dislikedGenres.join(", ")}.`);
   if (movieDescriptions.length > 0) {
     parts.push(`Favorite films: ${movieDescriptions.join("; ")}.`);
   }
@@ -189,12 +186,10 @@ export const registerUser = async ({
       behavioral_weight_sum: 0,
       rating_count: 0,
       completed_registration: true,
-      genres: genres.split(",").map((genre: string) => genre.trim()),
-      movies: movies ? movies.split(",").map((movie: string) => movie.trim()) : [],
-      moods: moods ? moods.split(",").map((m: string) => m.trim()) : [],
-      disliked_genres: dislikedGenres
-        ? dislikedGenres.split(",").map((g: string) => g.trim())
-        : [],
+      genres,
+      movies,
+      moods,
+      disliked_genres: dislikedGenres,
     })
     .eq("user_id", userId);
 
