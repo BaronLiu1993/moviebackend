@@ -2,6 +2,10 @@ import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 
 type AnyFn = (...args: any[]) => any;
 
+jest.unstable_mockModule("../queue/redis/redis.js", () => ({
+  Connection: { on: jest.fn<AnyFn>() },
+}));
+
 jest.unstable_mockModule("../service/clickhouse/clickhouseService.js", () => ({
   insertInteractionEvents: jest.fn<AnyFn>(),
   insertImpressionEvent: jest.fn<AnyFn>(),
