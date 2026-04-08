@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 import { insertInteractionEvents } from "../clickhouse/clickhouseService.js";
+import updateEmbeddingQueue from "../../queue/updateEmbedding/updateEmbeddingQueue.js";
+import { Connection as redis } from "../../queue/redis/redis.js";
+
+const LIKE_IMPLICIT_RATING = 2;
+const FEED_CACHE_TTL_BASE = 3600;
+const FEED_CACHE_JITTER = 300;
+const FEED_CACHE_PREFIX = "feed:";
 
 const TMDB_API_BASE = process.env.TMDB_API_BASE!;
 const TMDB_API_KEY = process.env.TMDB_API_KEY!;
@@ -65,15 +72,17 @@ type LikeFilmType = {
   tmdbId: number;
   film_name: string;
   genre_ids: number[];
+  accessToken: string;
 };
 
 type UnlikeFilmType = {
   supabaseClient: SupabaseClient;
   userId: UUID;
   tmdbId: number;
+  accessToken: string;
 };
 
-export const likeFilm = async ({ supabaseClient, userId, tmdbId, film_name, genre_ids }: LikeFilmType) => {
+export const likeFilm = async ({ supabaseClient, userId, tmdbId, film_name, genre_ids, accessToken }: LikeFilmType) => {
   try {
     const { error: insertError } = await supabaseClient
       .from("Film_Likes")
@@ -85,17 +94,16 @@ export const likeFilm = async ({ supabaseClient, userId, tmdbId, film_name, genr
       throw new Error(`Failed to like film: ${insertError.message}`);
     }
 
-    // Increment like_count on Guanghai
     await supabaseClient.rpc("increment_film_like_count", { p_tmdb_id: tmdbId });
-
     await insertInteractionEvents({ userId, tmdbId, interactionType: "like", film_name, genre_ids, rating: 0 });
+    await updateEmbeddingQueue.add('recompute', { userId, accessToken, operation: 'insert', tmdbId, rating: LIKE_IMPLICIT_RATING });
   } catch (err) {
     console.error(`[likeFilm] Exception:`, err);
     throw err;
   }
 };
 
-export const unlikeFilm = async ({ supabaseClient, userId, tmdbId }: UnlikeFilmType) => {
+export const unlikeFilm = async ({ supabaseClient, userId, tmdbId, accessToken }: UnlikeFilmType) => {
   try {
     const { error: deleteError } = await supabaseClient
       .from("Film_Likes")
@@ -108,10 +116,9 @@ export const unlikeFilm = async ({ supabaseClient, userId, tmdbId }: UnlikeFilmT
       throw new Error(`Failed to unlike film: ${deleteError.message}`);
     }
 
-    // Decrement like_count on Guanghai
     await supabaseClient.rpc("decrement_film_like_count", { p_tmdb_id: tmdbId });
-
     await insertInteractionEvents({ userId, tmdbId, interactionType: "like", rating: 0 });
+    await updateEmbeddingQueue.add('recompute', { userId, accessToken, operation: 'delete', tmdbId, rating: LIKE_IMPLICIT_RATING });
   } catch (err) {
     console.error(`[unlikeFilm] Exception:`, err);
     throw err;
@@ -382,94 +389,108 @@ export const getPopularDramas = async () => {
 };
 
 
-//Generate feed for users precompute -> cache -> fetch from cache (Redis) -> fallback to real-time computation if cache miss (TTL and randomise it to prevent cache stampedes)
+const getFeedCacheKey = (userId: string) => `${FEED_CACHE_PREFIX}${userId}`;
 
-// Returns personalized film recommendations based on user embeddings, with pagination support
+const getFeedTTL = () => {
+  const jitter = Math.floor(Math.random() * FEED_CACHE_JITTER * 2) - FEED_CACHE_JITTER;
+  return FEED_CACHE_TTL_BASE + jitter;
+};
+
+const RPC_BATCH_SIZE = 300;
+const MAX_POOL_SIZE = 300;
+
+const buildCandidatePool = async ({
+  supabaseClient,
+  userId,
+}: UserRequestType): Promise<FilmType[]> => {
+  const [recommendedFilms, collaborativeFilms, popularData, airingData] = await Promise.all([
+    getRecommendedFilms({ supabaseClient, userId, limitCount: RPC_BATCH_SIZE, offsetCount: 0 }),
+    getCollaborativeFilters({ supabaseClient, userId }),
+    getPopularDramas(),
+    getAiringDramas(),
+  ]);
+
+  console.log(
+    `[buildCandidatePool] RPC returned ${recommendedFilms.length} films, collaborative returned ${collaborativeFilms.length} films`,
+  );
+
+  const dedupedCollaborative = deduplicateCollaborative(collaborativeFilms);
+  const standardizedCollaborative = dedupedCollaborative.map((item) => ({
+    tmdb_id: item.film_id,
+    title: item.film_name,
+    release_year: "",
+    genre_ids: item.genre_ids || [],
+  }));
+
+  const standardizedPopular = (popularData.results || []).map((item: any) => ({
+    tmdb_id: item.id,
+    title: item.name,
+    release_year: item.first_air_date?.split("-")[0] || null,
+    genre_ids: item.genre_ids || [],
+    photo_url: item.poster_path
+      ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+      : null,
+  }));
+
+  const standardizedAiring = (airingData.results || []).map((item: any) => ({
+    tmdb_id: item.id,
+    title: item.name,
+    release_year: item.first_air_date?.split("-")[0] || null,
+    genre_ids: item.genre_ids || [],
+    photo_url: item.poster_path
+      ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+      : null,
+  }));
+
+  const rankedLists: RankedList[] = [
+    { name: "recommended", items: recommendedFilms as FilmType[] },
+    { name: "collaborative", items: standardizedCollaborative as FilmType[] },
+    { name: "popular", items: standardizedPopular as FilmType[] },
+    { name: "airing", items: standardizedAiring as FilmType[] },
+  ];
+
+  const fused = applyRRF(rankedLists);
+  const filtered = fused.filter((item: any) => !(item.tags || []).includes(99));
+  return applyGenreDiversity(filtered, MAX_POOL_SIZE);
+};
+
 export const getInitialFeed = async ({
   supabaseClient,
   userId,
   page = 1,
   pageSize = 20,
 }: GetFeedRequestType): Promise<GetFeedResponseType> => {
+  const cacheKey = getFeedCacheKey(userId);
+
+  let rankedFilms: FilmType[];
+  let cached: string | null = null;
+
   try {
-    const RPC_BATCH_SIZE = 300;
-    const offsetCount = (page - 1) * RPC_BATCH_SIZE;
-    const isFirstPage = page === 1;
-
-    const [recommendedFilms, collaborativeFilms, popularData, airingData] = await Promise.all([
-      getRecommendedFilms({
-        supabaseClient,
-        userId,
-        limitCount: RPC_BATCH_SIZE,
-        offsetCount,
-      }),
-      getCollaborativeFilters({ supabaseClient, userId }),
-      ...(isFirstPage ? [getPopularDramas(), getAiringDramas()] : []),
-    ]);
-
-    console.log(
-      `[getInitialFeed] RPC returned ${recommendedFilms.length} films, collaborative returned ${collaborativeFilms.length} films`,
-    );
-
-    const data = recommendedFilms;
-
-    // Deduplicate collaborative films before ranking
-    const dedupedCollaborative = deduplicateCollaborative(collaborativeFilms);
-    const standardizedCollaborative = dedupedCollaborative.map((item) => ({
-      tmdb_id: item.film_id,
-      title: item.film_name,
-      release_year: "",
-      genre_ids: item.genre_ids || [],
-    }));
-
-    const standardizedPopular = isFirstPage
-      ? (popularData.results || []).map((item: any) => ({
-          tmdb_id: item.id,
-          title: item.name,
-          release_year: item.first_air_date?.split("-")[0] || null,
-          genre_ids: item.genre_ids || [],
-          photo_url: item.poster_path
-            ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
-            : null,
-        }))
-      : [];
-
-    const standardizedAiring = isFirstPage
-      ? (airingData.results || []).map((item: any) => ({
-          tmdb_id: item.id,
-          title: item.name,
-          release_year: item.first_air_date?.split("-")[0] || null,
-          genre_ids: item.genre_ids || [],
-          photo_url: item.poster_path
-            ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
-            : null,
-        }))
-      : [];
-
-    // Build ranked lists for RRF (each pre-sorted by natural ordering)
-    const rankedLists: RankedList[] = [
-      { name: "recommended", items: data as FilmType[] },
-      { name: "collaborative", items: standardizedCollaborative as FilmType[] },
-      ...(isFirstPage
-        ? [
-            { name: "popular" as const, items: standardizedPopular as FilmType[] },
-            { name: "airing" as const, items: standardizedAiring as FilmType[] },
-          ]
-        : []),
-    ];
-
-    const fused = applyRRF(rankedLists);
-    const filtered = fused.filter((item: any) => !(item.tags || []).includes(99));
-    const films = applyGenreDiversity(filtered, pageSize);
-
-    const hasMore = data.length >= RPC_BATCH_SIZE;
-    console.log(
-      `[getInitialFeed] page=${page}, returned=${films.length}, hasMore=${hasMore} (fused: ${fused.length}, personalized: ${data.length}, collaborative: ${standardizedCollaborative.length}, popular: ${standardizedPopular.length}, airing: ${standardizedAiring.length})`,
-    );
-
-    return { films, page, pageSize, hasMore };
+    cached = await redis.get(cacheKey);
   } catch (err) {
-    console.error(`[getInitialFeed] Exception:`, err);
-    throw new Error(`Failed to generate feed: ${err instanceof Error ? err.message : String(err)}`);
+    console.error("[getInitialFeed] Redis read failed, computing fresh:", err);
   }
+
+  if (cached) {
+    rankedFilms = JSON.parse(cached) as FilmType[];
+    console.log(`[getInitialFeed] Cache hit for ${userId}, ${rankedFilms.length} films`);
+  } else {
+    try {
+      rankedFilms = await buildCandidatePool({ supabaseClient, userId });
+    } catch (err) {
+      console.error(`[getInitialFeed] Exception:`, err);
+      throw new Error(`Failed to generate feed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    redis.set(cacheKey, JSON.stringify(rankedFilms), "EX", getFeedTTL())
+      .catch(err => console.error("[getInitialFeed] Redis write failed:", err));
+
+    console.log(`[getInitialFeed] Cache miss for ${userId}, computed ${rankedFilms.length} films`);
+  }
+
+  const start = (page - 1) * pageSize;
+  const films = rankedFilms.slice(start, start + pageSize);
+  const hasMore = start + pageSize < rankedFilms.length;
+
+  return { films, page, pageSize, hasMore };
 };

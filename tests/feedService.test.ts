@@ -5,14 +5,21 @@ type AnyFn = (...args: any[]) => any;
 const mockFetch = jest.fn<AnyFn>();
 global.fetch = mockFetch as any;
 
-import {
+const mockRedisGet = jest.fn<AnyFn>();
+const mockRedisSet = jest.fn<AnyFn>();
+
+jest.unstable_mockModule("../queue/redis/redis.js", () => ({
+  Connection: { get: mockRedisGet, set: mockRedisSet },
+}));
+
+const {
   getInitialFeed,
   getAiringDramas,
   getPopularDramas,
   getCollaborativeFilters,
   applyRRF,
   deduplicateCollaborative,
-} from "../service/feed/feedService.js";
+} = await import("../service/feed/feedService.js");
 
 const mockFrom = jest.fn<AnyFn>();
 const mockRpc = jest.fn<AnyFn>();
@@ -22,6 +29,37 @@ const userId = "user-feed" as any;
 beforeEach(() => {
   jest.clearAllMocks();
 });
+
+// Helper: mock a full cache miss computation (RPCs + TMDB)
+const setupCacheMissMocks = () => {
+  mockRedisGet.mockResolvedValue(null);
+  mockRedisSet.mockResolvedValue("OK");
+
+  const recommended = Array.from({ length: 5 }, (_, i) => ({
+    tmdb_id: i + 1,
+    title: `Film ${i}`,
+    release_year: "2024",
+    film_id: `f${i}`,
+    genre_ids: [18],
+    similarity: 0.9 - i * 0.1,
+    photo_url: null,
+    media_type: "tv",
+  }));
+
+  mockRpc
+    .mockResolvedValueOnce({ data: recommended, error: null })
+    .mockResolvedValueOnce({ data: [], error: null });
+
+  mockFetch
+    .mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ results: [{ id: 100, name: "Popular", genre_ids: [18], poster_path: "/p.jpg", first_air_date: "2024-01-01" }] }),
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ results: [{ id: 200, name: "Airing", genre_ids: [35], poster_path: "/a.jpg", first_air_date: "2024-06-01" }] }),
+    });
+};
 
 describe("getAiringDramas", () => {
   it("returns TMDB airing data", async () => {
@@ -91,49 +129,75 @@ describe("getCollaborativeFilters", () => {
 });
 
 describe("getInitialFeed", () => {
-  it("returns a feed with films, page info, and hasMore", async () => {
-    const recommended = Array.from({ length: 5 }, (_, i) => ({
-      tmdb_id: i + 1,
-      title: `Film ${i}`,
-      release_year: "2024",
-      film_id: `f${i}`,
-      genre_ids: [18],
-      similarity: 0.9 - i * 0.1,
-      photo_url: null,
-      media_type: "tv",
-    }));
-    mockRpc
-      .mockResolvedValueOnce({ data: recommended, error: null })
-      .mockResolvedValueOnce({ data: [], error: null });
-
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ results: [{ id: 100, name: "Popular", genre_ids: [18], poster_path: "/p.jpg", first_air_date: "2024-01-01" }] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ results: [{ id: 200, name: "Airing", genre_ids: [35], poster_path: "/a.jpg", first_air_date: "2024-06-01" }] }),
-      });
+  it("computes and caches on cache miss", async () => {
+    setupCacheMissMocks();
 
     const result = await getInitialFeed({ supabaseClient, userId, page: 1, pageSize: 20 });
 
+    expect(mockRedisGet).toHaveBeenCalled();
+    expect(mockRedisSet).toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalled();
+    expect(mockFetch).toHaveBeenCalled();
     expect(result.films.length).toBeGreaterThan(0);
     expect(result.page).toBe(1);
     expect(result.pageSize).toBe(20);
     expect(typeof result.hasMore).toBe("boolean");
   });
 
-  it("does not fetch popular/airing on subsequent pages", async () => {
+  it("returns cached results without RPCs on cache hit", async () => {
+    const cachedFilms = [
+      { tmdb_id: 1, title: "Cached Film 1", release_year: "2024", genre_ids: [18] },
+      { tmdb_id: 2, title: "Cached Film 2", release_year: "2024", genre_ids: [35] },
+      { tmdb_id: 3, title: "Cached Film 3", release_year: "2024", genre_ids: [18] },
+    ];
+    mockRedisGet.mockResolvedValue(JSON.stringify(cachedFilms));
+
+    const result = await getInitialFeed({ supabaseClient, userId, page: 1, pageSize: 2 });
+
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(result.films).toHaveLength(2);
+    expect(result.films[0]!.tmdb_id).toBe(1);
+    expect(result.hasMore).toBe(true);
+  });
+
+  it("paginates from cache correctly", async () => {
+    const cachedFilms = Array.from({ length: 5 }, (_, i) => ({
+      tmdb_id: i + 1, title: `Film ${i + 1}`, release_year: "2024", genre_ids: [18],
+    }));
+    mockRedisGet.mockResolvedValue(JSON.stringify(cachedFilms));
+
+    const page2 = await getInitialFeed({ supabaseClient, userId, page: 2, pageSize: 2 });
+
+    expect(page2.films).toHaveLength(2);
+    expect(page2.films[0]!.tmdb_id).toBe(3);
+    expect(page2.films[1]!.tmdb_id).toBe(4);
+    expect(page2.hasMore).toBe(true);
+
+    const page3 = await getInitialFeed({ supabaseClient, userId, page: 3, pageSize: 2 });
+
+    expect(page3.films).toHaveLength(1);
+    expect(page3.films[0]!.tmdb_id).toBe(5);
+    expect(page3.hasMore).toBe(false);
+  });
+
+  it("falls back to computation on Redis read failure", async () => {
+    mockRedisGet.mockRejectedValue(new Error("Redis down"));
+    mockRedisSet.mockResolvedValue("OK");
+
     const recommended = [{ tmdb_id: 1, title: "F1", release_year: "2024", film_id: "f1", genre_ids: [18], similarity: 0.9, photo_url: null, media_type: "tv" }];
     mockRpc
       .mockResolvedValueOnce({ data: recommended, error: null })
       .mockResolvedValueOnce({ data: [], error: null });
 
-    const result = await getInitialFeed({ supabaseClient, userId, page: 2, pageSize: 20 });
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ results: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ results: [] }) });
 
-    expect(mockFetch).not.toHaveBeenCalled();
-    expect(result.page).toBe(2);
+    const result = await getInitialFeed({ supabaseClient, userId, page: 1, pageSize: 20 });
+
+    expect(result.films.length).toBeGreaterThan(0);
+    expect(mockRpc).toHaveBeenCalled();
   });
 });
 
@@ -186,9 +250,6 @@ describe("applyRRF", () => {
       { name: "popular", items: [film(4), film(5)] as any },
     ]);
 
-    // recommended weight=1.0, popular weight=0.3
-    // film(1) score = 1.0/(60+1) = 0.01639
-    // film(4) score = 0.3/(60+1) = 0.00492
     expect(result[0]!.tmdb_id).toBe(1);
     expect(result.find((f) => f.tmdb_id === 4)).toBeTruthy();
   });
@@ -199,9 +260,6 @@ describe("applyRRF", () => {
       { name: "collaborative", items: [film(3), film(4)] as any },
     ]);
 
-    // film(3): recommended rank 3 = 1.0/(60+3) + collaborative rank 1 = 0.7/(60+1)
-    // film(2): recommended rank 2 = 1.0/(60+2) only
-    // film(3) should be boosted above film(2)
     const idx3 = result.findIndex((f) => f.tmdb_id === 3);
     const idx2 = result.findIndex((f) => f.tmdb_id === 2);
     expect(idx3).toBeLessThan(idx2);

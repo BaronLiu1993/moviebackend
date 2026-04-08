@@ -9,17 +9,17 @@ export const insertRatingRequestSchema = z.object({
 });
 
 export const updateRatingRequestSchema = z.object({
-  ratingId: z.string().uuid(),
+  ratingId: z.uuid(),
   newRating: z.number().int().min(1).max(5),
   newNote: z.string().min(10).max(500),
 });
 
 export const deleteRatingRequestSchema = z.object({
-  ratingId: z.string().uuid(),
+  ratingId: z.uuid(),
 });
 
 export const ratingResponseSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.uuid(),
   tmdbId: z.number(),
   rating: z.number().min(0).max(5),
   name: z.string(),

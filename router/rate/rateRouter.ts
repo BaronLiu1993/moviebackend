@@ -71,9 +71,10 @@ router.post("/like", verifyToken, validateZod(likeRequestSchema), async (req, re
   const userId = req.user?.sub as UUID;
   const { tmdbId, film_name, genre_ids } = req.body;
   const supabaseClient = req.supabaseClient!;
+  const accessToken = req.token!;
 
   try {
-    await likeFilm({ supabaseClient, userId, tmdbId, film_name, genre_ids });
+    await likeFilm({ supabaseClient, userId, tmdbId, film_name, genre_ids, accessToken });
     return res.status(201).send();
   } catch (err) {
     if (err instanceof Error && err.message === "Already liked this film") {
@@ -88,8 +89,9 @@ router.delete("/like", verifyToken, validateZod(unlikeRequestSchema), async (req
   const userId = req.user?.sub as UUID;
   const { tmdbId } = req.body;
   const supabaseClient = req.supabaseClient!;
+  const accessToken = req.token!;
   try {
-    await unlikeFilm({ supabaseClient, userId, tmdbId });
+    await unlikeFilm({ supabaseClient, userId, tmdbId, accessToken });
     return res.status(204).send();
   } catch (err) {
     console.error(err);
