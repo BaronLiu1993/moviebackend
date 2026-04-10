@@ -29,5 +29,10 @@ export type SendFriendRequest = z.infer<typeof sendFriendRequestSchema>;
 export type AcceptFriendRequest = z.infer<typeof acceptFriendRequestSchema>;
 export type DeclineFriendRequest = z.infer<typeof declineFriendRequestSchema>;
 export type GetProfileQuery = z.infer<typeof getProfileQuerySchema>;
+export const redeemInviteSchema = z.object({
+    code: z.string().min(1).max(20),
+});
+
 export type RemoveFriend = z.infer<typeof removeFriendSchema>;
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
+export type RedeemInvite = z.infer<typeof redeemInviteSchema>;

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 
 // Types
 type SendFriendRequest = {
@@ -373,6 +374,132 @@ export const getProfile = async ({
   } catch (err) {
     console.error(`[getProfile] Exception:`, err);
     throw new Error("Failed to fetch friend profile");
+  }
+};
+
+// --- Invite Links ---
+
+type InviteRequest = {
+  supabaseClient: SupabaseClient;
+  userId: UUID;
+};
+
+type RedeemInviteRequest = {
+  supabaseClient: SupabaseClient;
+  userId: UUID;
+  code: string;
+};
+
+export const createInvite = async ({ supabaseClient, userId }: InviteRequest) => {
+  try {
+    const code = randomBytes(6).toString("base64url");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { error } = await supabaseClient
+      .from("Friend_Invites")
+      .insert({ code, user_id: userId, expires_at: expiresAt });
+
+    if (error) {
+      console.error(`[createInvite] Error creating invite for user ${userId}:`, error);
+      throw new Error("Failed to create invite");
+    }
+
+    return { code, expiresAt };
+  } catch (err) {
+    console.error(`[createInvite] Exception:`, err);
+    throw err;
+  }
+};
+
+export const redeemInvite = async ({ supabaseClient, userId, code }: RedeemInviteRequest) => {
+  try {
+    // 1. Look up invite
+    const { data: invite, error: inviteError } = await supabaseClient
+      .from("Friend_Invites")
+      .select("user_id, expires_at")
+      .eq("code", code)
+      .single();
+
+    if (inviteError || !invite) {
+      throw new Error("Invite not found or expired");
+    }
+
+    if (new Date(invite.expires_at) < new Date()) {
+      throw new Error("Invite not found or expired");
+    }
+
+    const inviterId = invite.user_id as UUID;
+
+    // 2. Cannot redeem own invite
+    if (inviterId === userId) {
+      throw new Error("Cannot redeem your own invite");
+    }
+
+    // 3. Check if already friends (either direction)
+    const { data: existing } = await supabaseClient
+      .from("Friends")
+      .select("request_id, status")
+      .or(`and(user_id.eq.${inviterId},friend_id.eq.${userId}),and(user_id.eq.${userId},friend_id.eq.${inviterId})`)
+      .single();
+
+    if (existing) {
+      if (existing.status === "accepted") {
+        throw new Error("Already friends");
+      }
+
+      // 4. Pending request exists — auto-accept it
+      const { error: acceptError } = await supabaseClient
+        .from("Friends")
+        .update({ status: "accepted" })
+        .eq("request_id", existing.request_id);
+
+      if (acceptError) {
+        throw new Error("Failed to accept pending request");
+      }
+    } else {
+      // 5. No existing relationship — create accepted friendship directly
+      const { error: insertError } = await supabaseClient
+        .from("Friends")
+        .insert({ user_id: inviterId, friend_id: userId, status: "accepted" });
+
+      if (insertError) {
+        console.error(`[redeemInvite] Error creating friendship:`, insertError);
+        throw new Error("Failed to create friendship");
+      }
+    }
+
+    // 6. Get inviter's name for the frontend
+    const { data: inviter } = await supabaseClient
+      .from("User_Profiles")
+      .select("name")
+      .eq("user_id", inviterId)
+      .single();
+
+    return { inviterId, inviterName: inviter?.name ?? "Unknown" };
+  } catch (err) {
+    console.error(`[redeemInvite] Exception:`, err);
+    throw err;
+  }
+};
+
+export const getActiveInvites = async ({ supabaseClient, userId }: InviteRequest) => {
+  try {
+    const { data, error } = await supabaseClient
+      .from("Friend_Invites")
+      .select("code, created_at, expires_at")
+      .eq("user_id", userId)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(`[getActiveInvites] Error fetching invites for user ${userId}:`, error);
+      throw new Error("Failed to fetch invites");
+    }
+
+    return data;
+  } catch (err) {
+    console.error(`[getActiveInvites] Exception:`, err);
+    throw err;
   }
 };
 

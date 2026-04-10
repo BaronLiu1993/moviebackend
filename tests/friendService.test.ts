@@ -11,6 +11,9 @@ import {
   getFriendRequests,
   getFollowing,
   getProfile,
+  createInvite,
+  redeemInvite,
+  getActiveInvites,
 } from "../service/friend/friendService.js";
 
 const mockFrom = jest.fn<AnyFn>();
@@ -269,5 +272,163 @@ describe("removeFriend", () => {
     await expect(
       removeFriend({ supabaseClient, userId, friendId })
     ).rejects.toThrow("Failed to remove friend");
+  });
+});
+
+describe("createInvite", () => {
+  it("creates an invite and returns code + expiresAt", async () => {
+    const insertFn = jest.fn<AnyFn>().mockResolvedValue({ error: null });
+    mockFrom.mockReturnValueOnce({ insert: insertFn });
+
+    const result = await createInvite({ supabaseClient, userId });
+
+    expect(result.code).toBeDefined();
+    expect(result.code.length).toBeGreaterThan(0);
+    expect(result.expiresAt).toBeDefined();
+    expect(insertFn).toHaveBeenCalled();
+  });
+
+  it("throws on insert error", async () => {
+    const insertFn = jest.fn<AnyFn>().mockResolvedValue({ error: { message: "db error" } });
+    mockFrom.mockReturnValueOnce({ insert: insertFn });
+
+    await expect(createInvite({ supabaseClient, userId })).rejects.toThrow("Failed to create invite");
+  });
+});
+
+describe("redeemInvite", () => {
+  const futureDate = new Date(Date.now() + 86400000).toISOString();
+  const pastDate = new Date(Date.now() - 86400000).toISOString();
+
+  it("creates accepted friendship on valid invite", async () => {
+    // Fetch invite
+    const singleInvite = jest.fn<AnyFn>().mockResolvedValue({
+      data: { user_id: friendId, expires_at: futureDate }, error: null,
+    });
+    const eqInvite = jest.fn<AnyFn>().mockReturnValue({ single: singleInvite });
+    const selectInvite = jest.fn<AnyFn>().mockReturnValue({ eq: eqInvite });
+
+    // Check existing friendship — none found
+    const singleExisting = jest.fn<AnyFn>().mockResolvedValue({ data: null, error: { code: "PGRST116" } });
+    const orExisting = jest.fn<AnyFn>().mockReturnValue({ single: singleExisting });
+    const selectExisting = jest.fn<AnyFn>().mockReturnValue({ or: orExisting });
+
+    // Insert friendship
+    const insertFn = jest.fn<AnyFn>().mockResolvedValue({ error: null });
+
+    // Fetch inviter name
+    const singleName = jest.fn<AnyFn>().mockResolvedValue({ data: { name: "Friend" }, error: null });
+    const eqName = jest.fn<AnyFn>().mockReturnValue({ single: singleName });
+    const selectName = jest.fn<AnyFn>().mockReturnValue({ eq: eqName });
+
+    mockFrom
+      .mockReturnValueOnce({ select: selectInvite })
+      .mockReturnValueOnce({ select: selectExisting })
+      .mockReturnValueOnce({ insert: insertFn })
+      .mockReturnValueOnce({ select: selectName });
+
+    const result = await redeemInvite({ supabaseClient, userId, code: "abc123" });
+
+    expect(result.inviterName).toBe("Friend");
+    expect(insertFn).toHaveBeenCalledWith({
+      user_id: friendId, friend_id: userId, status: "accepted",
+    });
+  });
+
+  it("throws on expired invite", async () => {
+    const singleInvite = jest.fn<AnyFn>().mockResolvedValue({
+      data: { user_id: friendId, expires_at: pastDate }, error: null,
+    });
+    const eqInvite = jest.fn<AnyFn>().mockReturnValue({ single: singleInvite });
+    const selectInvite = jest.fn<AnyFn>().mockReturnValue({ eq: eqInvite });
+    mockFrom.mockReturnValueOnce({ select: selectInvite });
+
+    await expect(
+      redeemInvite({ supabaseClient, userId, code: "expired" })
+    ).rejects.toThrow("Invite not found or expired");
+  });
+
+  it("throws on self-redeem", async () => {
+    const singleInvite = jest.fn<AnyFn>().mockResolvedValue({
+      data: { user_id: userId, expires_at: futureDate }, error: null,
+    });
+    const eqInvite = jest.fn<AnyFn>().mockReturnValue({ single: singleInvite });
+    const selectInvite = jest.fn<AnyFn>().mockReturnValue({ eq: eqInvite });
+    mockFrom.mockReturnValueOnce({ select: selectInvite });
+
+    await expect(
+      redeemInvite({ supabaseClient, userId, code: "myown" })
+    ).rejects.toThrow("Cannot redeem your own invite");
+  });
+
+  it("throws if already friends", async () => {
+    const singleInvite = jest.fn<AnyFn>().mockResolvedValue({
+      data: { user_id: friendId, expires_at: futureDate }, error: null,
+    });
+    const eqInvite = jest.fn<AnyFn>().mockReturnValue({ single: singleInvite });
+    const selectInvite = jest.fn<AnyFn>().mockReturnValue({ eq: eqInvite });
+
+    const singleExisting = jest.fn<AnyFn>().mockResolvedValue({
+      data: { request_id: "r1", status: "accepted" }, error: null,
+    });
+    const orExisting = jest.fn<AnyFn>().mockReturnValue({ single: singleExisting });
+    const selectExisting = jest.fn<AnyFn>().mockReturnValue({ or: orExisting });
+
+    mockFrom
+      .mockReturnValueOnce({ select: selectInvite })
+      .mockReturnValueOnce({ select: selectExisting });
+
+    await expect(
+      redeemInvite({ supabaseClient, userId, code: "already" })
+    ).rejects.toThrow("Already friends");
+  });
+
+  it("auto-accepts pending request", async () => {
+    const singleInvite = jest.fn<AnyFn>().mockResolvedValue({
+      data: { user_id: friendId, expires_at: futureDate }, error: null,
+    });
+    const eqInvite = jest.fn<AnyFn>().mockReturnValue({ single: singleInvite });
+    const selectInvite = jest.fn<AnyFn>().mockReturnValue({ eq: eqInvite });
+
+    const singleExisting = jest.fn<AnyFn>().mockResolvedValue({
+      data: { request_id: "r1", status: "pending" }, error: null,
+    });
+    const orExisting = jest.fn<AnyFn>().mockReturnValue({ single: singleExisting });
+    const selectExisting = jest.fn<AnyFn>().mockReturnValue({ or: orExisting });
+
+    // Update to accepted
+    const eqUpdate = jest.fn<AnyFn>().mockResolvedValue({ error: null });
+    const updateFn = jest.fn<AnyFn>().mockReturnValue({ eq: eqUpdate });
+
+    // Fetch inviter name
+    const singleName = jest.fn<AnyFn>().mockResolvedValue({ data: { name: "Friend" }, error: null });
+    const eqName = jest.fn<AnyFn>().mockReturnValue({ single: singleName });
+    const selectName = jest.fn<AnyFn>().mockReturnValue({ eq: eqName });
+
+    mockFrom
+      .mockReturnValueOnce({ select: selectInvite })
+      .mockReturnValueOnce({ select: selectExisting })
+      .mockReturnValueOnce({ update: updateFn })
+      .mockReturnValueOnce({ select: selectName });
+
+    const result = await redeemInvite({ supabaseClient, userId, code: "pending" });
+
+    expect(updateFn).toHaveBeenCalledWith({ status: "accepted" });
+    expect(result.inviterName).toBe("Friend");
+  });
+});
+
+describe("getActiveInvites", () => {
+  it("returns unexpired invites", async () => {
+    const invites = [{ code: "abc", created_at: "2024-01-01", expires_at: "2099-01-01" }];
+    const order = jest.fn<AnyFn>().mockResolvedValue({ data: invites, error: null });
+    const gt = jest.fn<AnyFn>().mockReturnValue({ order });
+    const eq = jest.fn<AnyFn>().mockReturnValue({ gt });
+    const select = jest.fn<AnyFn>().mockReturnValue({ eq });
+    mockFrom.mockReturnValueOnce({ select });
+
+    const result = await getActiveInvites({ supabaseClient, userId });
+
+    expect(result).toEqual(invites);
   });
 });
