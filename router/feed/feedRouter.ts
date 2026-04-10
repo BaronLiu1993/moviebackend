@@ -64,7 +64,6 @@ router.get("/search", verifyToken, async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ message: "Invalid query parameters" });
   }
-
   const { q, page, pageSize, media_type, country, release_year, genre_ids } = parsed.data;
 
   try {

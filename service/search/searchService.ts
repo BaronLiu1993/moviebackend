@@ -25,7 +25,7 @@ type SearchResponse = {
   films: FilmType[];
   page: number;
   pageSize: number;
-  total: number;
+  hasMore: boolean;
 };
 
 const standardizeResults = (data: any[]): FilmType[] =>
@@ -100,10 +100,12 @@ export const searchFilms = async ({
   const start = (page - 1) * pageSize;
   const paginatedFilms = fused.slice(start, start + pageSize);
 
+  const hasMore = start + pageSize < fused.length;
+
   return {
     films: paginatedFilms,
     page,
     pageSize,
-    total: fused.length,
+    hasMore,
   };
 };

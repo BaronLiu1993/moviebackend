@@ -45,7 +45,7 @@ describe("searchFilms", () => {
     });
 
     expect(result.films.length).toBe(3);
-    expect(result.total).toBe(3);
+    expect(result.hasMore).toBe(false);
     // Film 2 should be first (appears in both lists)
     expect(result.films[0]!.tmdb_id).toBe(2);
   });
@@ -97,7 +97,7 @@ describe("searchFilms", () => {
     expect(result.page).toBe(2);
     expect(result.pageSize).toBe(3);
     expect(result.films.length).toBe(3);
-    expect(result.total).toBe(10);
+    expect(result.hasMore).toBe(true);
     // Page 2 should start at film 4
     expect(result.films[0]!.tmdb_id).toBe(4);
   });
