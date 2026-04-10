@@ -53,4 +53,26 @@ router.put("/register", verifyToken, validateZod(registerRequestSchema), async (
   }
 });
 
+router.get("/me", verifyToken, async (req, res) => {
+  const userId = req.user?.sub as UUID;
+  const supabaseClient = req.supabaseClient!;
+
+  try {
+    const { data, error } = await supabaseClient
+      .from("User_Profiles")
+      .select("user_id, email, name, genres, movies, moods, disliked_genres, completed_registration, rating_count")
+      .eq("user_id", userId)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({ data });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 export default router;

@@ -1,8 +1,3 @@
-/**
- * It acts as the authentication service layer between the API routes,
- * Supabase (auth + database), and OpenAI.
- */
-
 import { createSignInSupabase, createSupabaseClient } from "../supabase/configureSupabase.js";
 import { fetchTmdbOverview, fetchTmdbKeywords } from "../tmdb/tmdbService.js";
 import { createDefaultWatchlist } from "../list/listService.js";
