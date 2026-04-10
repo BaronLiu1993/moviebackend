@@ -93,7 +93,6 @@ export const likeFilm = async ({ supabaseClient, userId, tmdbId, film_name, genr
       console.error(`[likeFilm] Error liking film ${tmdbId} for user ${userId}:`, insertError);
       throw new Error(`Failed to like film: ${insertError.message}`);
     }
-
     await supabaseClient.rpc("increment_film_like_count", { p_tmdb_id: tmdbId });
     await insertInteractionEvents({ userId, tmdbId, interactionType: "like", film_name, genre_ids, rating: 0 });
     await updateEmbeddingQueue.add('recompute', { userId, accessToken, operation: 'insert', tmdbId, rating: LIKE_IMPLICIT_RATING });

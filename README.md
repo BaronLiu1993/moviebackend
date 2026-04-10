@@ -1,169 +1,195 @@
-# Movie Backend API
+# Movie Backend
 
-TypeScript + Express.js backend for a social movie discovery and rating platform. Users authenticate via Google OAuth, rate films, manage friendships, and receive personalized recommendations powered by OpenAI embeddings.
+A TypeScript + Express.js backend for a Korean drama discovery and rating platform. Users authenticate via Google OAuth, rate films, manage friendships, and receive personalized recommendations powered by OpenAI embeddings that evolve incrementally as users rate more content.
 
 ## Tech Stack
 
-- **Runtime**: Express.js v5 + TypeScript (Node.js 18+)
-- **Database**: Supabase (PostgreSQL + Auth)
-- **AI**: OpenAI `text-embedding-3-small` for profile embeddings
-- **Queues**: BullMQ + Redis (async job processing)
-- **Analytics**: Kafka + ClickHouse (event streaming)
-- **External**: TMDB API (movie metadata)
+- **Runtime:** Node.js 22 + Express 5 + TypeScript (ESM)
+- **Database:** Supabase (PostgreSQL + Auth + RPC)
+- **Embeddings:** OpenAI `text-embedding-3-small` (384 dimensions)
+- **Queues:** BullMQ + Redis (async embedding recomputation)
+- **Analytics:** ClickHouse (direct inserts for event tracking)
+- **ML:** Python (numpy for incremental vector math)
+- **Validation:** Zod
+- **External API:** TMDB (movie/TV metadata)
 
-## Architecture
+## Prerequisites
 
-```
-moviebackend/
-├── index.ts                              # Express app entry point (port 8000)
-├── middleware/
-│   └── verifyToken.ts                    # JWT auth middleware
-│
-├── router/                               # Route handlers
-│   ├── auth/authRouter.ts                # Google OAuth + registration
-│   ├── query/queryRouter.ts              # Film discovery + feed
-│   ├── rate/rateRouter.ts                # Rating CRUD
-│   ├── friend/friendRouter.ts            # Friend management
-│   └── analytics/analyticsRouter.ts      # Event tracking
-│
-├── service/                              # Business logic
-│   ├── auth/authService.ts               # OAuth, profile embedding generation
-│   ├── query/queryService.ts             # Recommendations, TMDB integration
-│   ├── rate/rateService.ts               # Rating operations
-│   ├── friend/friendService.ts           # Friend requests, follows, profiles
-│   ├── analytics/analyticsService.ts     # Kafka event producers
-│   ├── kafka/                            # Kafka producer + consumer config
-│   ├── clickhouse/clickhouseService.ts   # ClickHouse analytics writes
-│   └── supabase/configureSupabase.ts     # Supabase client factory
-│
-├── queue/                                # Async job processing
-│   ├── redis/redis.ts                    # Redis connection
-│   ├── training/                         # Model training queue (WIP)
-│   └── updateEmbedding/                  # Embedding update queue (WIP)
-│
-└── ranking/                              # ML training pipeline (Python)
-    ├── training/train.py                 # LightGBM model training
-    ├── reasoner/model.py                 # Model inference
-    └── aggregate/aggregate.py            # Data aggregation
-```
-
-Each domain follows a **router → service** pattern. Routers handle HTTP concerns; services contain business logic and database calls.
-
-## API Endpoints
-
-### Auth (`/v1/api/auth`)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/signup-with-google` | Initiate Google OAuth flow |
-| GET | `/oauth2callback` | OAuth callback, returns JWT tokens |
-| POST | `/register` | Complete profile with genres + movies (generates embedding) |
-
-### Discovery (`/v1/api/query`)
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/initial-feed?userId=` | No | Personalized feed (embeddings + popular + airing) |
-| GET | `/friend-search` | Yes | Films bookmarked by friends |
-| GET | `/airing` | No | Currently airing Korean dramas |
-| GET | `/popular` | No | Popular Korean dramas |
-
-### Ratings (`/v1/api/rate`)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/insert-ratings` | Add rating (1-5) with optional note |
-| GET | `/select-ratings` | Get user's ratings |
-| PUT | `/update-ratings` | Update a rating |
-| DELETE | `/delete-ratings` | Remove a rating |
-
-### Friends (`/v1/api/friend`) — all authenticated
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/send-request` | Send friend request |
-| POST | `/accept-request` | Accept request |
-| POST | `/decline-request` | Reject request |
-| GET | `/get-following` | Users you follow |
-| GET | `/get-followers` | Pending incoming requests |
-| GET | `/get-profile?friendId=` | View friend's profile (friends only) |
-
-### Analytics (`/v1/api/analytics`)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/click` | Log film click |
-| POST | `/impression` | Log view impression |
-| POST | `/like` | Log explicit like |
-| POST | `/friend-like` | Log friend activity like |
-
-### Health
-`GET /health` — returns `{ status: "ok" }`
+- Node.js 22+
+- Python 3
+- Docker & Docker Compose (for Redis + ClickHouse)
 
 ## Getting Started
 
-### Prerequisites
-Node.js 18+, Redis, Supabase project, OpenAI API key, TMDB API key
-
-### Setup
+### 1. Clone and install
 
 ```bash
-npm install
-cp .env.example .env   # configure your keys
-npm run dev             # starts on http://localhost:8000
+git clone https://github.com/baronliu1993/moviebackend.git
+cd moviebackend
 ```
 
-### Environment Variables
+### 2. Configure environment
 
-```env
-SUPABASE_URL=
-SUPABASE_ANON_KEY=
-SUPABASE_JWT_SECRET=
-SUPABASE_JWT_ALGORITHM=HS256
-SUPABASE_SERVICE_ROLE=
-
-OPENAI_API_KEY=
-TMDB_API_KEY=
-TMDB_API_BASE=https://api.themoviedb.org/
-
-KAFKA_BROKER_URL=localhost:9092
-CLICKHOUSE_URL=http://localhost:8123/
-CLICKHOUSE_USER=
-CLICKHOUSE_PASSWORD=
-CLICKHOUSE_DATABASE=
-
-REDIS_URL=redis://localhost:6379
-CORS_ORIGIN=http://localhost:3000
+```bash
+cp .env.example .env
+# Fill in your Supabase, OpenAI, TMDB, and ClickHouse credentials
 ```
 
-### Docker
+### 3. Run full setup
 
-Ensure you have a `.env` file configured (see above), then:
+```bash
+make setup
+```
+
+This installs Node and Python dependencies, starts Redis and ClickHouse via Docker Compose, and initializes the ClickHouse schema.
+
+### 4. Start development server
+
+```bash
+make dev
+```
+
+The server runs on `http://localhost:8000`.
+
+## Scripts
+
+| Command | Description |
+| --- | --- |
+| `make setup` | Install all deps, start containers, init ClickHouse |
+| `make dev` | Start Redis + ClickHouse and dev server with hot reload |
+| `make test` | Run Jest test suite |
+| `make build` | Compile TypeScript to `dist/` |
+| `npm run dev` | Dev server only (no containers) |
+| `npm run build` | TypeScript compile |
+| `npm start` | Run compiled `dist/index.js` |
+
+## Project Structure
+
+```
+index.ts                  # Express app entry point (port 8000)
+middleware/               # Auth (JWT) and validation middleware
+router/                   # Route definitions by domain
+  auth/                   #   OAuth sign-in, registration
+  query/                  #   Feed, search, airing, popular
+  rate/                   #   CRUD for ratings
+  friend/                 #   Friend requests and profiles
+  analytics/              #   Click, impression, like tracking
+  bookmark/               #   Bookmark management
+service/                  # Business logic by domain
+schemas/                  # Zod validation schemas
+queue/                    # BullMQ workers (embedding recomputation)
+ranking/                  # Python ML scripts (embedding math)
+clickhouse/               # ClickHouse schema definitions
+tests/                    # Jest test suite
+```
+
+Each domain follows a **router -> service** pattern. Routers handle HTTP concerns; services contain business logic and database calls.
+
+## API Endpoints
+
+All routes are prefixed with `/v1/api`. Protected routes require a `Bearer` token in the `Authorization` header.
+
+### Auth (`/v1/api/auth`)
+
+| Method | Route | Auth | Description |
+| --- | --- | --- | --- |
+| GET | `/signup-with-google` | No | Initiate Google OAuth flow |
+| GET | `/oauth2callback` | No | OAuth callback, returns JWT tokens |
+| POST | `/register` | Yes | Complete registration with preferences |
+
+### Feed & Search (`/v1/api/query`)
+
+| Method | Route | Auth | Description |
+| --- | --- | --- | --- |
+| GET | `/initial-feed` | Yes | Personalized recommendations |
+| GET | `/friend-search` | Yes | Search for friends |
+| GET | `/airing` | No | Currently airing Korean dramas |
+| GET | `/popular` | No | Popular Korean dramas |
+| GET | `/ratings` | Yes | Get user's ratings with film details |
+
+### Ratings (`/v1/api/rate`)
+
+| Method | Route | Auth | Description |
+| --- | --- | --- | --- |
+| POST | `/insert-ratings` | Yes | Rate a film (1-5) with note |
+| GET | `/select-ratings` | Yes | Get user's ratings |
+| PUT | `/update-ratings` | Yes | Update an existing rating |
+| DELETE | `/delete-ratings` | Yes | Delete a rating |
+
+### Friends (`/v1/api/friend`) -- all authenticated
+
+| Method | Route | Auth | Description |
+| --- | --- | --- | --- |
+| POST | `/send-request` | Yes | Send a friend request |
+| POST | `/accept-request` | Yes | Accept a friend request |
+| POST | `/decline-request` | Yes | Decline a friend request |
+| GET | `/get-following` | Yes | List users you follow |
+| GET | `/get-followers` | Yes | List your followers |
+| GET | `/get-friend-requests` | Yes | List pending requests |
+| GET | `/get-profile` | Yes | View a user's profile |
+
+### Analytics (`/v1/api/analytics`) -- no auth
+
+| Method | Route | Description |
+| --- | --- | --- |
+| POST | `/click` | Track a click event |
+| POST | `/impression` | Track impressions |
+| POST | `/like` | Track a like |
+| POST | `/friend-like` | Track a friend-like |
+
+### Bookmarks (`/v1/api/bookmark`)
+
+| Method | Route | Auth | Description |
+| --- | --- | --- | --- |
+| POST | `/add-bookmark` | Yes | Bookmark a film |
+| DELETE | `/remove-bookmark` | Yes | Remove a bookmark |
+| GET | `/get-bookmarks` | Yes | Get user's bookmarks |
+
+### Health
+
+`GET /health` -- returns `{ status: "ok" }`
+
+## How Recommendations Work
+
+Each user has three embedding vectors:
+
+1. **Interest embedding** -- generated once at registration from genre/movie/mood preferences using OpenAI embeddings
+2. **Behavioral embedding** -- evolves incrementally each time the user rates a film, weighted by rating value (1-5)
+3. **Profile embedding** -- a blend of the two: `alpha * interest + (1 - alpha) * behavioral`, where `alpha = 1 / (1 + rating_count)`
+
+New users get recommendations based on stated preferences. As they rate more content, the system gradually shifts toward behavior-driven recommendations. The behavioral embedding is updated via a Python subprocess that performs incremental vector math -- no full retraining needed.
+
+## Environment Variables
+
+See [.env.example](.env.example) for the full list:
+
+| Variable | Description |
+| --- | --- |
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Supabase anonymous key |
+| `SUPABASE_SERVICE_ROLE` | Supabase service role key (admin) |
+| `SUPABASE_JWT_SECRET` | JWT secret for token validation |
+| `OPENAI_API_KEY` | OpenAI API key for embeddings |
+| `TMDB_API_KEY` | TMDB API key for film metadata |
+| `CLICKHOUSE_USER` | ClickHouse username |
+| `CLICKHOUSE_PASSWORD` | ClickHouse password |
+| `CLICKHOUSE_DATABASE` | ClickHouse database name |
+| `CORS_ORIGIN` | Allowed CORS origin |
+| `CRON_ADMIN_TOKEN` | Admin token for cron endpoints |
+
+## Docker
 
 ```bash
 docker compose up --build
 ```
 
-This starts all services:
-
-| Service    | Port(s)      |
-|------------|--------------|
-| App        | 8000         |
-| Kafka      | 9092         |
-| Redis      | 6379         |
-| ClickHouse | 8123, 9000   |
-
-To stop:
+Starts the app, Redis, and ClickHouse.
 
 ```bash
-docker compose down
+docker compose down       # stop containers
+docker compose down -v    # stop and remove persisted data
 ```
 
-To stop and remove persisted data (Redis, ClickHouse):
+## License
 
-```bash
-docker compose down -v
-```
-
-### Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Dev server with hot reload (tsx watch) |
-| `npm run build` | Compile TypeScript |
-| `npm start` | Run compiled `dist/index.js` |
+ISC

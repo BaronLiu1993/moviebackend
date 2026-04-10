@@ -72,7 +72,7 @@ router.post("/like", verifyToken, validateZod(likeRequestSchema), async (req, re
   const { tmdbId, film_name, genre_ids } = req.body;
   const supabaseClient = req.supabaseClient!;
   const accessToken = req.token!;
-
+  console.log("hit")
   try {
     await likeFilm({ supabaseClient, userId, tmdbId, film_name, genre_ids, accessToken });
     return res.status(201).send();
@@ -90,6 +90,7 @@ router.delete("/like", verifyToken, validateZod(unlikeRequestSchema), async (req
   const { tmdbId } = req.body;
   const supabaseClient = req.supabaseClient!;
   const accessToken = req.token!;
+  console.log("hit delete")
   try {
     await unlikeFilm({ supabaseClient, userId, tmdbId, accessToken });
     return res.status(204).send();

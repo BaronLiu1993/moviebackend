@@ -32,8 +32,6 @@ import type { UUID } from "node:crypto";
 
 const router = Router();
 
-// --- List CRUD ---
-
 router.post("/", verifyToken, validateZod(createListSchema), async (req, res) => {
   const userId = req.user?.sub as UUID;
   const supabaseClient = req.supabaseClient!;
@@ -101,7 +99,6 @@ router.put("/", verifyToken, validateZod(renameListSchema), async (req, res) => 
   }
 });
 
-// --- List Items ---
 
 router.post("/items", verifyToken, validateZod(addListItemSchema), async (req, res) => {
   const userId = req.user?.sub as UUID;
@@ -164,7 +161,6 @@ router.get("/items", verifyToken, async (req, res) => {
   }
 });
 
-// --- List Members (collaborative) ---
 
 router.post("/members", verifyToken, validateZod(inviteToListSchema), async (req, res) => {
   const userId = req.user?.sub as UUID;
