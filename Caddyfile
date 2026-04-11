@@ -1,0 +1,8 @@
+# When you have a domain, replace :80 with your domain:
+# api.yourapp.com {
+#   reverse_proxy app:8000
+# }
+
+:80 {
+  reverse_proxy app:8000
+}
