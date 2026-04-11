@@ -204,17 +204,17 @@ describe("getInitialFeed", () => {
 describe("deduplicateCollaborative", () => {
   it("aggregates duplicate films by average rating", () => {
     const films = [
-      { film_id: 1, rating: 4, film_name: "Drama A", genre_ids: [18] },
-      { film_id: 1, rating: 5, film_name: "Drama A", genre_ids: [18] },
-      { film_id: 2, rating: 4, film_name: "Drama B", genre_ids: [35] },
+      { tmdb_id: 1, rating: 4, film_name: "Drama A", genre_ids: [18] },
+      { tmdb_id: 1, rating: 5, film_name: "Drama A", genre_ids: [18] },
+      { tmdb_id: 2, rating: 4, film_name: "Drama B", genre_ids: [35] },
     ];
 
     const result = deduplicateCollaborative(films);
 
     expect(result).toHaveLength(2);
-    expect(result[0]!.film_id).toBe(1);
+    expect(result[0]!.tmdb_id).toBe(1);
     expect(result[0]!.rating).toBe(4.5);
-    expect(result[1]!.film_id).toBe(2);
+    expect(result[1]!.tmdb_id).toBe(2);
     expect(result[1]!.rating).toBe(4);
   });
 
@@ -224,14 +224,14 @@ describe("deduplicateCollaborative", () => {
 
   it("sorts by average rating descending", () => {
     const films = [
-      { film_id: 1, rating: 4, film_name: "A", genre_ids: [] },
-      { film_id: 2, rating: 5, film_name: "B", genre_ids: [] },
+      { tmdb_id: 1, rating: 4, film_name: "A", genre_ids: [] },
+      { tmdb_id: 2, rating: 5, film_name: "B", genre_ids: [] },
     ];
 
     const result = deduplicateCollaborative(films);
 
-    expect(result[0]!.film_id).toBe(2);
-    expect(result[1]!.film_id).toBe(1);
+    expect(result[0]!.tmdb_id).toBe(2);
+    expect(result[1]!.tmdb_id).toBe(1);
   });
 });
 

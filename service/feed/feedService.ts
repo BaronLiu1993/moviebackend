@@ -165,11 +165,11 @@ export const getCollaborativeFilters = async ({
     }
 
 
-    const films: { film_id: number; rating: number; film_name: string; genre_ids: number[] }[] = [];
+    const films: { tmdb_id: number; rating: number; film_name: string; genre_ids: number[] }[] = [];
     for (const friendId of topKData) {
       const { data: friendFilms, error: friendFilmsError } = await supabaseClient
         .from("Ratings")
-        .select("film_id, rating, film_name, genre_ids")
+        .select("tmdb_id, rating, film_name, genre_ids")
         .eq("user_id", friendId)
         .gte("rating", 4)
         .limit(20);
@@ -200,18 +200,18 @@ const genreSimilarity = (a: number[], b: number[]): number => {
   return union > 0 ? intersection / union : 0;
 };
 
-type CollaborativeFilm = { film_id: number; rating: number; film_name: string; genre_ids: number[] };
+type CollaborativeFilm = { tmdb_id: number; rating: number; film_name: string; genre_ids: number[] };
 
 export const deduplicateCollaborative = (films: CollaborativeFilm[]): CollaborativeFilm[] => {
   const map = new Map<number, { totalRating: number; count: number; film_name: string; genre_ids: number[] }>();
 
   for (const film of films) {
-    const existing = map.get(film.film_id);
+    const existing = map.get(film.tmdb_id);
     if (existing) {
       existing.totalRating += film.rating;
       existing.count += 1;
     } else {
-      map.set(film.film_id, {
+      map.set(film.tmdb_id, {
         totalRating: film.rating,
         count: 1,
         film_name: film.film_name,
@@ -221,8 +221,8 @@ export const deduplicateCollaborative = (films: CollaborativeFilm[]): Collaborat
   }
 
   return Array.from(map.entries())
-    .map(([film_id, val]) => ({
-      film_id,
+    .map(([tmdb_id, val]) => ({
+      tmdb_id,
       rating: val.totalRating / val.count,
       film_name: val.film_name,
       genre_ids: val.genre_ids,
@@ -415,7 +415,7 @@ const buildCandidatePool = async ({
 
   const dedupedCollaborative = deduplicateCollaborative(collaborativeFilms);
   const standardizedCollaborative = dedupedCollaborative.map((item) => ({
-    tmdb_id: item.film_id,
+    tmdb_id: item.tmdb_id,
     title: item.film_name,
     release_year: "",
     genre_ids: item.genre_ids || [],
