@@ -2,6 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 import { insertInteractionEvents } from "../clickhouse/clickhouseService.js";
 import { checkIsFriends } from "../friend/friendService.js";
+import { signImageUrls } from "../storage/signedUrl.js";
 import updateEmbeddingQueue from "../../queue/updateEmbedding/updateEmbeddingQueue.js";
 
 type SelectRatingType = { 
@@ -48,7 +49,7 @@ export const selectRatings = async ({
     .order("created_at", { ascending: false });
 
   if (error) throw new Error("Failed to select ratings");
-  return data;
+  return signImageUrls(supabaseClient, data ?? []);
 };
 
 export const insertRating = async ({

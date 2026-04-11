@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 import { randomBytes } from "node:crypto";
+import { signImageUrls } from "../storage/signedUrl.js";
 
 // Types
 type SendFriendRequest = {
@@ -367,8 +368,10 @@ export const getProfile = async ({
       has_liked: userLikeSet.has(r.rating_id),
     }));
 
+    const signedRatings = await signImageUrls(supabaseClient, enrichedRatings);
+
     return {
-      ratings: enrichedRatings,
+      ratings: signedRatings,
       profile,
     };
   } catch (err) {
@@ -473,7 +476,9 @@ export const getFriendFeed = async ({
 
     const hasMore = from + pageSize < totalCount;
 
-    return { ratings: enrichedRatings, page, pageSize, hasMore };
+    const signedRatings = await signImageUrls(supabaseClient, enrichedRatings);
+
+    return { ratings: signedRatings, page, pageSize, hasMore };
   } catch (err) {
     console.error(`[getFriendFeed] Exception:`, err);
     throw new Error("Failed to fetch friend feed");
