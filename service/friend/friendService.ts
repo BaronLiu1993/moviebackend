@@ -377,6 +377,109 @@ export const getProfile = async ({
   }
 };
 
+// --- Friend Feed ---
+
+type GetFriendFeedRequest = {
+  supabaseClient: SupabaseClient;
+  userId: UUID;
+  page?: number;
+  pageSize?: number;
+};
+
+export const getFriendFeed = async ({
+  supabaseClient,
+  userId,
+  page = 1,
+  pageSize = 20,
+}: GetFriendFeedRequest) => {
+  try {
+    // Get all accepted friend IDs (both directions)
+    const { data: friendRows, error: friendError } = await supabaseClient
+      .from("Friends")
+      .select("user_id, friend_id")
+      .eq("status", "accepted")
+      .or(`user_id.eq.${userId},friend_id.eq.${userId}`);
+
+    if (friendError) {
+      console.error(`[getFriendFeed] Error fetching friends:`, friendError);
+      throw new Error("Failed to fetch friends");
+    }
+
+    const friendIds = (friendRows ?? []).map((r: any) =>
+      r.user_id === userId ? r.friend_id : r.user_id,
+    );
+
+    if (friendIds.length === 0) {
+      return { ratings: [], page, pageSize, hasMore: false };
+    }
+
+    // Get total count for hasMore
+    const { count, error: countError } = await supabaseClient
+      .from("Ratings")
+      .select("rating_id", { count: "exact", head: true })
+      .in("user_id", friendIds);
+
+    if (countError) {
+      console.error(`[getFriendFeed] Error counting ratings:`, countError);
+      throw new Error("Failed to count friend ratings");
+    }
+
+    const totalCount = count ?? 0;
+
+    // Get paginated ratings
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data: ratings, error: ratingsError } = await supabaseClient
+      .from("Ratings")
+      .select("rating_id, user_id, tmdb_id, rating, note, film_name, genre_ids, like_count, created_at")
+      .in("user_id", friendIds)
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (ratingsError) {
+      console.error(`[getFriendFeed] Error fetching ratings:`, ratingsError);
+      throw new Error("Failed to fetch friend ratings");
+    }
+
+    // Enrich with has_liked + friend name
+    const ratingIds = (ratings ?? []).map((r: any) => r.rating_id);
+    const ratingUserIds = [...new Set((ratings ?? []).map((r: any) => r.user_id))];
+
+    const [likesResult, namesResult] = await Promise.all([
+      ratingIds.length > 0
+        ? supabaseClient
+            .from("Rating_Likes")
+            .select("rating_id")
+            .in("rating_id", ratingIds)
+            .eq("user_id", userId)
+        : Promise.resolve({ data: [], error: null }),
+      ratingUserIds.length > 0
+        ? supabaseClient
+            .from("User_Profiles")
+            .select("user_id, name")
+            .in("user_id", ratingUserIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    const userLikeSet = new Set((likesResult.data ?? []).map((l: any) => l.rating_id));
+    const nameMap = new Map((namesResult.data ?? []).map((u: any) => [u.user_id, u.name]));
+
+    const enrichedRatings = (ratings ?? []).map((r: any) => ({
+      ...r,
+      has_liked: userLikeSet.has(r.rating_id),
+      user_name: nameMap.get(r.user_id) ?? "Unknown",
+    }));
+
+    const hasMore = from + pageSize < totalCount;
+
+    return { ratings: enrichedRatings, page, pageSize, hasMore };
+  } catch (err) {
+    console.error(`[getFriendFeed] Exception:`, err);
+    throw new Error("Failed to fetch friend feed");
+  }
+};
+
 // --- Invite Links ---
 
 type InviteRequest = {

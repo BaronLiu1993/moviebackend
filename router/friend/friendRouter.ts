@@ -11,6 +11,7 @@ import {
   createInvite,
   redeemInvite,
   getActiveInvites,
+  getFriendFeed,
 } from "../../service/friend/friendService.js";
 import type { UUID } from "node:crypto";
 import { verifyToken } from "../../middleware/verifyToken.js";
@@ -154,6 +155,28 @@ router.get("/profile", verifyToken, async (req, res) => {
     });
     return res.status(200).json({ data });
   } catch (err) {
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+router.get("/feed", verifyToken, async (req, res) => {
+  const userId = req.user?.sub as UUID;
+  const supabaseClient = req.supabaseClient!;
+
+  if (!userId || !supabaseClient) {
+    return res.status(400).json({ message: "Missing Inputs" });
+  }
+
+  const parsed = paginationQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ message: "Invalid query parameters" });
+  }
+
+  try {
+    const data = await getFriendFeed({ supabaseClient, userId, ...parsed.data });
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error(err);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
