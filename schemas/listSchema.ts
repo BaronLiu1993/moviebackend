@@ -2,6 +2,7 @@ import * as z from "zod";
 
 export const createListSchema = z.object({
   name: z.string().min(1).max(100),
+  hasImage: z.boolean().optional().default(false),
 });
 
 export const deleteListSchema = z.object({

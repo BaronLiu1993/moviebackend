@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 import { insertInteractionEvents } from "../clickhouse/clickhouseService.js";
 import { checkIsFriends } from "../friend/friendService.js";
+import { signImageUrls } from "../storage/signedUrl.js";
 import updateEmbeddingQueue from "../../queue/updateEmbedding/updateEmbeddingQueue.js";
 
 const LIST_ADD_IMPLICIT_RATING = 1;
@@ -11,7 +12,7 @@ type UserRequest = {
   userId: UUID;
 };
 
-type CreateListRequest = UserRequest & { name: string };
+type CreateListRequest = UserRequest & { name: string; hasImage?: boolean };
 type DeleteListRequest = UserRequest & { listId: UUID };
 type RenameListRequest = UserRequest & { listId: UUID; name: string };
 
@@ -98,10 +99,15 @@ export const createDefaultWatchlist = async ({ supabaseClient, userId }: UserReq
   return data;
 };
 
-export const createList = async ({ supabaseClient, userId, name }: CreateListRequest) => {
+const DEFAULT_LIST_IMAGE = "https://image.tmdb.org/t/p/w500/placeholder.jpg";
+
+export const createList = async ({ supabaseClient, userId, name, hasImage = false }: CreateListRequest) => {
+  const imagePath = hasImage ? `lists/${userId}/${Date.now()}.jpg` : null;
+  const imageUrl = imagePath ?? DEFAULT_LIST_IMAGE;
+
   const { data, error } = await supabaseClient
     .from("Lists")
-    .insert({ user_id: userId, name, is_default: false })
+    .insert({ user_id: userId, name, is_default: false, image_url: imageUrl })
     .select()
     .single();
 
@@ -115,14 +121,28 @@ export const createList = async ({ supabaseClient, userId, name }: CreateListReq
     .from("List_Members")
     .insert({ list_id: data.list_id, user_id: userId, role: "owner", status: "accepted" });
 
-  return data;
+  let uploadUrl: string | null = null;
+
+  if (hasImage && imagePath) {
+    const { data: signedData, error: signError } = await supabaseClient.storage
+      .from("list-images")
+      .createSignedUploadUrl(imagePath);
+
+    if (signError) {
+      console.error(`[createList] Failed to create upload URL:`, signError);
+    } else {
+      uploadUrl = signedData.signedUrl;
+    }
+  }
+
+  return { ...data, uploadUrl };
 };
 
 export const getUserLists = async ({ supabaseClient, userId }: UserRequest) => {
   // Get lists user owns directly (including default Watchlist)
   const { data: ownedLists, error: ownedError } = await supabaseClient
     .from("Lists")
-    .select("list_id, name, is_default, user_id, created_at")
+    .select("list_id, name, is_default, user_id, image_url, created_at")
     .eq("user_id", userId)
     .order("is_default", { ascending: false })
     .order("created_at", { ascending: true });
@@ -151,7 +171,7 @@ export const getUserLists = async ({ supabaseClient, userId }: UserRequest) => {
   if (collaboratedListIds.length > 0) {
     const { data, error } = await supabaseClient
       .from("Lists")
-      .select("list_id, name, is_default, user_id, created_at")
+      .select("list_id, name, is_default, user_id, image_url, created_at")
       .in("list_id", collaboratedListIds);
 
     if (error) {
@@ -161,7 +181,8 @@ export const getUserLists = async ({ supabaseClient, userId }: UserRequest) => {
     collaboratedLists = data ?? [];
   }
 
-  return [...(ownedLists ?? []), ...collaboratedLists];
+  const allLists = [...(ownedLists ?? []), ...collaboratedLists];
+  return signImageUrls(supabaseClient, allLists);
 };
 
 export const deleteList = async ({ supabaseClient, userId, listId }: DeleteListRequest) => {

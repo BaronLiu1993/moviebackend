@@ -35,10 +35,10 @@ const router = Router();
 router.post("/", verifyToken, validateZod(createListSchema), async (req, res) => {
   const userId = req.user?.sub as UUID;
   const supabaseClient = req.supabaseClient!;
-  const { name } = req.body;
+  const { name, hasImage } = req.body;
 
   try {
-    const list = await createList({ supabaseClient, userId, name });
+    const list = await createList({ supabaseClient, userId, name, hasImage });
     return res.status(201).json({ data: list });
   } catch (err) {
     if (err instanceof Error && err.message === "A list with this name already exists") {
