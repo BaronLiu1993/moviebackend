@@ -11,13 +11,13 @@ import type { UUID } from "node:crypto";
 const router = Router();
 
 router.post("/ratings", verifyToken, validateZod(insertRatingRequestSchema), validateInsertRating, async (req, res) => {
-  const { tmdbId, rating, note, name, genre_ids } = req.body;
+  const { tmdbId, rating, note, name, genre_ids, hasImage } = req.body;
   const userId = req.user?.sub as UUID;
   const accessToken = req.token!;
   const supabaseClient = req.supabaseClient!;
   try {
-    await insertRating({ tmdbId, userId, rating, note, name, genre_ids, supabaseClient, accessToken });
-    return res.status(201).send();
+    const result = await insertRating({ tmdbId, userId, rating, note, name, genre_ids, supabaseClient, accessToken, hasImage });
+    return res.status(201).json({ data: result });
   } catch (err) {
     console.log(err);
     return res.status(500).json({ message: "Internal Server Error" });

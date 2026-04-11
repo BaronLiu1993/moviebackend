@@ -18,6 +18,7 @@ type InsertRatingType = {
   name: string;
   genre_ids: number[];
   accessToken: string;
+  hasImage?: boolean;
 };
 
 type UpdateRatingType = {
@@ -59,6 +60,7 @@ export const insertRating = async ({
   userId,
   tmdbId,
   accessToken,
+  hasImage = false,
 }: InsertRatingType) => {
 
   const { data: existingRating, error: fetchError } = await supabaseClient
@@ -77,20 +79,56 @@ export const insertRating = async ({
     throw new Error("User has already rated this film");
   }
 
-  // Add data base constraint the combination of user_id and film_id must be unique
-  const { error: insertError } = await supabaseClient.from("Ratings").insert({
-    user_id: userId,
-    rating: rating,
-    note: note,
-    film_name: name,
-    tmdb_id: tmdbId,
-    genre_ids: genre_ids
-  });
+  let imageUrl: string | null = null;
 
-  console.log(insertError)
+  if (hasImage) {
+    imageUrl = `ratings/${userId}/${tmdbId}.jpg`;
+  } else {
+    // Fall back to the film's poster from Guanghai
+    const { data: film } = await supabaseClient
+      .from("Guanghai")
+      .select("photo_url")
+      .eq("tmdb_id", tmdbId)
+      .single();
+
+    imageUrl = film?.photo_url ?? null;
+  }
+
+  const { data: insertedRating, error: insertError } = await supabaseClient
+    .from("Ratings")
+    .insert({
+      user_id: userId,
+      rating: rating,
+      note: note,
+      film_name: name,
+      tmdb_id: tmdbId,
+      genre_ids: genre_ids,
+      image_url: imageUrl,
+    })
+    .select("rating_id")
+    .single();
+
   if (insertError) throw new Error("Failed to insert rating");
+
+  // Generate presigned upload URL if image is expected
+  let uploadUrl: string | null = null;
+
+  if (hasImage && imageUrl) {
+    const { data: signedData, error: signError } = await supabaseClient.storage
+      .from("rating-images")
+      .createSignedUploadUrl(imageUrl);
+
+    if (signError) {
+      console.error(`[insertRating] Failed to create upload URL:`, signError);
+    } else {
+      uploadUrl = signedData.signedUrl;
+    }
+  }
+
   await insertInteractionEvents({ userId, tmdbId, interactionType: "rating", rating, film_name: name, genre_ids });
   await updateEmbeddingQueue.add('recompute', { userId, accessToken, operation: 'insert', tmdbId, rating });
+
+  return { ratingId: insertedRating?.rating_id, uploadUrl };
 };
 
 export const deleteRating = async ({

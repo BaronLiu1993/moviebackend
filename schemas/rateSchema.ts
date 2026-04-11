@@ -6,6 +6,7 @@ export const insertRatingRequestSchema = z.object({
   note: z.string().min(10).max(500),
   name: z.string().min(1),
   genre_ids: z.array(z.number().int()),
+  hasImage: z.boolean().optional().default(false),
 });
 
 export const updateRatingRequestSchema = z.object({
