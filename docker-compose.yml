@@ -15,15 +15,14 @@ services:
       retries: 3
 
   clickhouse:
-    image: clickhouse:latest
+    image: clickhouse/clickhouse-server:latest
     container_name: clickhouse
     ports:
       - "8123:8123"
-      - "9000:9000"
     environment:
-      CLICKHOUSE_DB: ${CLICKHOUSE_DATABASE:-db_test}
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-jiexuan}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-02NpT3Nc}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DATABASE}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ./clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -36,31 +35,27 @@ services:
       start_period: 10s
 
   app:
+    image: ${APP_IMAGE:-moviebackend:latest}
     build:
       context: .
       dockerfile: Dockerfile
     container_name: app
-    ports:
-      - "8000:8000"
     environment:
       NODE_ENV: production
-
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE: ${SUPABASE_SERVICE_ROLE}
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       SUPABASE_JWT_ALGORITHM: ${SUPABASE_JWT_ALGORITHM}
-
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       TMDB_API_KEY: ${TMDB_API_KEY}
       TMDB_API_BASE: ${TMDB_API_BASE}
-
+      CRON_ADMIN_TOKEN: ${CRON_ADMIN_TOKEN}
       REDIS_URL: redis://redis:6379
-
       CLICKHOUSE_URL: http://clickhouse:8123/
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-jiexuan}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-02NpT3Nc}
-      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE:-db_test}
-
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
     depends_on:
       redis:
@@ -68,7 +63,30 @@ services:
       clickhouse:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   redis_data:
   clickhouse_data:
+  caddy_data:
+  caddy_config:
