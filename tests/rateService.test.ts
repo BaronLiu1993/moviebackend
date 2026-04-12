@@ -66,15 +66,25 @@ describe("insertRating", () => {
   };
 
   it("inserts rating and enqueues embedding job", async () => {
+    // 1. Check existing rating — not found
     const singleCheck = jest.fn<AnyFn>().mockResolvedValue({ data: null, error: { code: "PGRST116" } });
     const eqTmdb = jest.fn<AnyFn>().mockReturnValue({ single: singleCheck });
     const eqUser = jest.fn<AnyFn>().mockReturnValue({ eq: eqTmdb });
     const selectCheck = jest.fn<AnyFn>().mockReturnValue({ eq: eqUser });
 
-    const insertFn = jest.fn<AnyFn>().mockResolvedValue({ error: null });
+    // 2. Fetch photo_url from Guanghai
+    const singlePhoto = jest.fn<AnyFn>().mockResolvedValue({ data: { photo_url: "https://image.tmdb.org/t/p/w500/poster.jpg" }, error: null });
+    const eqPhoto = jest.fn<AnyFn>().mockReturnValue({ single: singlePhoto });
+    const selectPhoto = jest.fn<AnyFn>().mockReturnValue({ eq: eqPhoto });
+
+    // 3. Insert rating — returns rating_id
+    const singleInsert = jest.fn<AnyFn>().mockResolvedValue({ data: { rating_id: "r1" }, error: null });
+    const selectInsert = jest.fn<AnyFn>().mockReturnValue({ single: singleInsert });
+    const insertFn = jest.fn<AnyFn>().mockReturnValue({ select: selectInsert });
 
     mockFrom
       .mockReturnValueOnce({ select: selectCheck })
+      .mockReturnValueOnce({ select: selectPhoto })
       .mockReturnValueOnce({ insert: insertFn });
 
     await insertRating(baseArgs);
@@ -83,6 +93,7 @@ describe("insertRating", () => {
       user_id: userId,
       rating: 4,
       tmdb_id: 12345,
+      image_url: "https://image.tmdb.org/t/p/w500/poster.jpg",
     }));
     expect(insertInteractionEvents).toHaveBeenCalledWith({
       userId, tmdbId: 12345, interactionType: "rating", rating: 4, film_name: "My Drama", genre_ids: [18, 10759],
@@ -107,10 +118,20 @@ describe("insertRating", () => {
     const eqTmdb = jest.fn<AnyFn>().mockReturnValue({ single: singleCheck });
     const eqUser = jest.fn<AnyFn>().mockReturnValue({ eq: eqTmdb });
     const selectCheck = jest.fn<AnyFn>().mockReturnValue({ eq: eqUser });
-    const insertFn = jest.fn<AnyFn>().mockResolvedValue({ error: { message: "constraint violation" } });
+
+    // Guanghai photo_url fetch
+    const singlePhoto = jest.fn<AnyFn>().mockResolvedValue({ data: { photo_url: null }, error: null });
+    const eqPhoto = jest.fn<AnyFn>().mockReturnValue({ single: singlePhoto });
+    const selectPhoto = jest.fn<AnyFn>().mockReturnValue({ eq: eqPhoto });
+
+    // Insert fails
+    const singleInsert = jest.fn<AnyFn>().mockResolvedValue({ data: null, error: { message: "constraint violation" } });
+    const selectInsert = jest.fn<AnyFn>().mockReturnValue({ single: singleInsert });
+    const insertFn = jest.fn<AnyFn>().mockReturnValue({ select: selectInsert });
 
     mockFrom
       .mockReturnValueOnce({ select: selectCheck })
+      .mockReturnValueOnce({ select: selectPhoto })
       .mockReturnValueOnce({ insert: insertFn });
 
     await expect(insertRating(baseArgs)).rejects.toThrow("Failed to insert rating");

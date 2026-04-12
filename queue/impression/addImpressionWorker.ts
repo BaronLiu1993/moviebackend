@@ -24,8 +24,21 @@ const genreOverlap = (userGenres: number[], filmGenres: number[]): number => {
   return union > 0 ? intersection / union : 0;
 }
 
+const DEDUP_TTL = 86400; // 24 hours
+
 const worker = new Worker("impression-sync", async (job) => {
     const impression = job.data;
+
+    // Dedup: skip if this (sessionId, userId, tmdbId) was already logged
+    const dedupKey = `imp:${impression.sessionId}`;
+    const member = `${impression.userId}:${impression.tmdbId}`;
+    try {
+      const alreadyLogged = await Connection.sismember(dedupKey, member);
+      if (alreadyLogged) return;
+    } catch {
+      // Redis down — fail open, allow insert
+    }
+
     const supabase = createServerSideSupabaseClient();
     let embedding_similarity = 0;
     let genre_overlap_score = 0;
@@ -63,6 +76,14 @@ const worker = new Worker("impression-sync", async (job) => {
       embedding_similarity,
       genre_overlap: genre_overlap_score,
     });
+
+    // Mark as logged for dedup
+    try {
+      await Connection.sadd(dedupKey, member);
+      await Connection.expire(dedupKey, DEDUP_TTL);
+    } catch {
+      // Redis down — dedup will miss but data is safe in ClickHouse
+    }
 }, {
   connection: Connection,
   concurrency: 5,
