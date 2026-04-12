@@ -416,11 +416,17 @@ export const getFriendFeed = async ({
       return { ratings: [], page, pageSize, hasMore: false };
     }
 
+    // Only show activity from the last month
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    const cutoff = oneMonthAgo.toISOString();
+
     // Get total count for hasMore
     const { count, error: countError } = await supabaseClient
       .from("Ratings")
       .select("rating_id", { count: "exact", head: true })
-      .in("user_id", friendIds);
+      .in("user_id", friendIds)
+      .gte("created_at", cutoff);
 
     if (countError) {
       console.error(`[getFriendFeed] Error counting ratings:`, countError);
@@ -435,8 +441,9 @@ export const getFriendFeed = async ({
 
     const { data: ratings, error: ratingsError } = await supabaseClient
       .from("Ratings")
-      .select("rating_id, user_id, tmdb_id, rating, note, film_name, genre_ids, like_count, created_at")
+      .select("rating_id, user_id, tmdb_id, rating, note, film_name, genre_ids, image_url, like_count, created_at")
       .in("user_id", friendIds)
+      .gte("created_at", cutoff)
       .order("created_at", { ascending: false })
       .range(from, to);
 
@@ -449,7 +456,9 @@ export const getFriendFeed = async ({
     const ratingIds = (ratings ?? []).map((r: any) => r.rating_id);
     const ratingUserIds = [...new Set((ratings ?? []).map((r: any) => r.user_id))];
 
-    const [likesResult, namesResult] = await Promise.all([
+    const tmdbIds = [...new Set((ratings ?? []).map((r: any) => r.tmdb_id))];
+
+    const [likesResult, namesResult, filmsResult] = await Promise.all([
       ratingIds.length > 0
         ? supabaseClient
             .from("Rating_Likes")
@@ -463,21 +472,28 @@ export const getFriendFeed = async ({
             .select("user_id, name")
             .in("user_id", ratingUserIds)
         : Promise.resolve({ data: [], error: null }),
+      tmdbIds.length > 0
+        ? supabaseClient
+            .from("Guanghai")
+            .select("tmdb_id, photo_url")
+            .in("tmdb_id", tmdbIds)
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
     const userLikeSet = new Set((likesResult.data ?? []).map((l: any) => l.rating_id));
     const nameMap = new Map((namesResult.data ?? []).map((u: any) => [u.user_id, u.name]));
+    const photoMap = new Map((filmsResult.data ?? []).map((f: any) => [f.tmdb_id, f.photo_url]));
 
     const enrichedRatings = (ratings ?? []).map((r: any) => ({
       ...r,
       has_liked: userLikeSet.has(r.rating_id),
       user_name: nameMap.get(r.user_id) ?? "Unknown",
+      photo_url: photoMap.get(r.tmdb_id) ?? null,
     }));
 
     const hasMore = from + pageSize < totalCount;
 
     const signedRatings = await signImageUrls(supabaseClient, enrichedRatings);
-
     return { ratings: signedRatings, page, pageSize, hasMore };
   } catch (err) {
     console.error(`[getFriendFeed] Exception:`, err);
@@ -485,7 +501,6 @@ export const getFriendFeed = async ({
   }
 };
 
-// --- Invite Links ---
 
 type InviteRequest = {
   supabaseClient: SupabaseClient;
