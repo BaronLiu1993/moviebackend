@@ -275,7 +275,7 @@ export const unlikeRating = async ({ supabaseClient, userId, ratingId }: LikeRat
     // Decrement like_count (floor at 0)
     const { data: rating } = await supabaseClient
       .from("Ratings")
-      .select("like_count")
+      .select("like_count, tmdb_id, film_name, genre_ids")
       .eq("rating_id", ratingId)
       .single();
 
@@ -284,6 +284,16 @@ export const unlikeRating = async ({ supabaseClient, userId, ratingId }: LikeRat
         .from("Ratings")
         .update({ like_count: Math.max((rating.like_count ?? 0) - 1, 0) })
         .eq("rating_id", ratingId);
+
+      await insertInteractionEvents({
+        userId,
+        tmdbId: rating.tmdb_id,
+        interactionType: "rating_like",
+        rating_id: ratingId,
+        film_name: rating.film_name,
+        genre_ids: rating.genre_ids,
+        rating: 0,
+      });
     }
   } catch (err) {
     console.error(`[unlikeRating] Exception:`, err);
