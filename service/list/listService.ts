@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { UUID } from "node:crypto";
+import { randomBytes, type UUID } from "node:crypto";
 import { insertInteractionEvents } from "../clickhouse/clickhouseService.js";
 import { checkIsFriends } from "../friend/friendService.js";
 import { signImageUrls } from "../storage/signedUrl.js";
@@ -37,8 +37,9 @@ type GetListItemsRequest = UserRequest & {
   pageSize: number;
 };
 
-type InviteRequest = UserRequest & { listId: UUID; friendId: UUID };
-type InviteResponseRequest = UserRequest & { listId: UUID };
+type CreateListInviteRequest = UserRequest & { listId: UUID };
+type RedeemListInviteRequest = UserRequest & { code: string };
+type GetListInvitesRequest = UserRequest & { listId: UUID };
 type RemoveMemberRequest = UserRequest & { listId: UUID; targetUserId: UUID };
 type GetMembersRequest = UserRequest & { listId: UUID };
 
@@ -337,69 +338,76 @@ export const getListItems = async ({
 
 // --- List Members (collaborative) ---
 
-export const inviteToList = async ({ supabaseClient, userId, listId, friendId }: InviteRequest) => {
+export const createListInvite = async ({ supabaseClient, userId, listId }: CreateListInviteRequest) => {
   await requireRole(supabaseClient, userId, listId, ["owner"]);
 
   if (await isDefaultList(supabaseClient, listId)) {
     throw new Error("Cannot share the default Watchlist");
   }
 
-  const isFriend = await checkIsFriends(supabaseClient, userId, friendId);
-  if (!isFriend) throw new Error("Can only invite friends");
+  const code = randomBytes(6).toString("base64url");
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const { error } = await supabaseClient
-    .from("List_Members")
-    .insert({ list_id: listId, user_id: friendId, role: "collaborator", status: "pending", invited_by: userId });
+    .from("List_Invites")
+    .insert({ code, list_id: listId, user_id: userId, expires_at: expiresAt });
 
   if (error) {
-    if (error.code === "23505") throw new Error("User already invited to this list");
-    console.error(`[inviteToList] Error:`, error);
-    throw new Error(`Failed to invite user: ${error.message}`);
+    console.error(`[createListInvite] Error:`, error);
+    throw new Error(`Failed to create invite: ${error.message}`);
   }
+
+  return { code, expiresAt };
 };
 
-export const acceptListInvite = async ({ supabaseClient, userId, listId }: InviteResponseRequest) => {
-  const { data, error: fetchError } = await supabaseClient
-    .from("List_Members")
-    .select("member_id, status")
-    .eq("list_id", listId)
-    .eq("user_id", userId)
-    .eq("status", "pending")
+export const redeemListInvite = async ({ supabaseClient, userId, code }: RedeemListInviteRequest) => {
+  const { data: invite, error: inviteError } = await supabaseClient
+    .from("List_Invites")
+    .select("list_id, user_id, expires_at")
+    .eq("code", code)
     .single();
 
-  if (fetchError || !data) throw new Error("No pending invite found");
+  if (inviteError || !invite) throw new Error("Invite not found or expired");
 
-  const { error } = await supabaseClient
-    .from("List_Members")
-    .update({ status: "accepted" })
-    .eq("member_id", data.member_id);
-
-  if (error) {
-    console.error(`[acceptListInvite] Error:`, error);
-    throw new Error(`Failed to accept invite: ${error.message}`);
+  if (new Date(invite.expires_at) < new Date()) {
+    throw new Error("Invite not found or expired");
   }
-};
 
-export const declineListInvite = async ({ supabaseClient, userId, listId }: InviteResponseRequest) => {
-  const { data, error: fetchError } = await supabaseClient
+  const inviterId = invite.user_id as UUID;
+  const listId = invite.list_id as UUID;
+
+  if (inviterId === userId) throw new Error("Cannot redeem your own invite");
+
+  const isFriend = await checkIsFriends(supabaseClient, userId, inviterId);
+  if (!isFriend) throw new Error("Must be friends with the list owner");
+
+  const { data: existing } = await supabaseClient
     .from("List_Members")
-    .select("member_id, status")
+    .select("member_id")
     .eq("list_id", listId)
     .eq("user_id", userId)
-    .eq("status", "pending")
+    .eq("status", "accepted")
     .single();
 
-  if (fetchError || !data) throw new Error("No pending invite found");
+  if (existing) throw new Error("Already a member of this list");
 
-  const { error } = await supabaseClient
+  const { error: memberError } = await supabaseClient
     .from("List_Members")
-    .delete()
-    .eq("member_id", data.member_id);
+    .insert({ list_id: listId, user_id: userId, role: "collaborator", status: "accepted", invited_by: inviterId });
 
-  if (error) {
-    console.error(`[declineListInvite] Error:`, error);
-    throw new Error(`Failed to decline invite: ${error.message}`);
+  if (memberError) {
+    if (memberError.code === "23505") throw new Error("Already a member of this list");
+    console.error(`[redeemListInvite] Error:`, memberError);
+    throw new Error(`Failed to join list: ${memberError.message}`);
   }
+
+  const { data: list } = await supabaseClient
+    .from("Lists")
+    .select("name")
+    .eq("list_id", listId)
+    .single();
+
+  return { listId, listName: list?.name ?? "Unknown" };
 };
 
 export const removeMember = async ({ supabaseClient, userId, listId, targetUserId }: RemoveMemberRequest) => {
@@ -436,15 +444,19 @@ export const getListMembers = async ({ supabaseClient, userId, listId }: GetMemb
   return data;
 };
 
-export const getPendingInvites = async ({ supabaseClient, userId }: UserRequest) => {
+export const getListInvites = async ({ supabaseClient, userId, listId }: GetListInvitesRequest) => {
+  await requireRole(supabaseClient, userId, listId, ["owner"]);
+
   const { data, error } = await supabaseClient
-    .from("List_Members")
-    .select("list_id, invited_by, created_at")
+    .from("List_Invites")
+    .select("code, created_at, expires_at")
+    .eq("list_id", listId)
     .eq("user_id", userId)
-    .eq("status", "pending");
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false });
 
   if (error) {
-    console.error(`[getPendingInvites] Error:`, error);
+    console.error(`[getListInvites] Error:`, error);
     throw new Error(`Failed to fetch invites: ${error.message}`);
   }
 

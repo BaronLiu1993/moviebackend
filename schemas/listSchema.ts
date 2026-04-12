@@ -33,12 +33,15 @@ export const getListItemsQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(50).default(20),
 });
 
-export const inviteToListSchema = z.object({
+export const createListInviteSchema = z.object({
   listId: z.string().uuid(),
-  friendId: z.string().uuid(),
 });
 
-export const respondToInviteSchema = z.object({
+export const redeemListInviteSchema = z.object({
+  code: z.string().min(1).max(20),
+});
+
+export const getListInvitesQuerySchema = z.object({
   listId: z.string().uuid(),
 });
 
@@ -57,7 +60,8 @@ export type RenameListInput = z.infer<typeof renameListSchema>;
 export type AddListItemInput = z.infer<typeof addListItemSchema>;
 export type RemoveListItemInput = z.infer<typeof removeListItemSchema>;
 export type GetListItemsQuery = z.infer<typeof getListItemsQuerySchema>;
-export type InviteToListInput = z.infer<typeof inviteToListSchema>;
-export type RespondToInviteInput = z.infer<typeof respondToInviteSchema>;
+export type CreateListInviteInput = z.infer<typeof createListInviteSchema>;
+export type RedeemListInviteInput = z.infer<typeof redeemListInviteSchema>;
+export type GetListInvitesQuery = z.infer<typeof getListInvitesQuerySchema>;
 export type RemoveMemberInput = z.infer<typeof removeMemberSchema>;
 export type GetListMembersQuery = z.infer<typeof getListMembersQuerySchema>;

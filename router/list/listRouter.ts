@@ -8,8 +8,9 @@ import {
   addListItemSchema,
   removeListItemSchema,
   getListItemsQuerySchema,
-  inviteToListSchema,
-  respondToInviteSchema,
+  createListInviteSchema,
+  redeemListInviteSchema,
+  getListInvitesQuerySchema,
   removeMemberSchema,
   getListMembersQuerySchema,
 } from "../../schemas/listSchema.js";
@@ -21,12 +22,11 @@ import {
   addListItem,
   removeListItem,
   getListItems,
-  inviteToList,
-  acceptListInvite,
-  declineListInvite,
+  createListInvite,
+  redeemListInvite,
+  getListInvites,
   removeMember,
   getListMembers,
-  getPendingInvites,
 } from "../../service/list/listService.js";
 import type { UUID } from "node:crypto";
 
@@ -162,54 +162,66 @@ router.get("/items", verifyToken, async (req, res) => {
 });
 
 
-router.post("/members", verifyToken, validateZod(inviteToListSchema), async (req, res) => {
+router.post("/invite", verifyToken, validateZod(createListInviteSchema), async (req, res) => {
   const userId = req.user?.sub as UUID;
   const supabaseClient = req.supabaseClient!;
-  const { listId, friendId } = req.body;
+  const { listId } = req.body;
 
   try {
-    await inviteToList({ supabaseClient, userId, listId, friendId });
-    return res.status(201).json({ message: "Invite sent" });
+    const invite = await createListInvite({ supabaseClient, userId, listId });
+    const baseUrl = process.env.CORS_ORIGIN || "http://localhost:3000";
+    return res.status(201).json({
+      code: invite.code,
+      url: `${baseUrl}/list-invite/${invite.code}`,
+      expiresAt: invite.expiresAt,
+    });
   } catch (err) {
     if (err instanceof Error) {
       if (err.message === "Access denied") return res.status(403).json({ message: err.message });
       if (err.message === "Cannot share the default Watchlist") return res.status(403).json({ message: err.message });
-      if (err.message === "Can only invite friends") return res.status(403).json({ message: err.message });
-      if (err.message === "User already invited to this list") return res.status(409).json({ message: err.message });
     }
     console.error(err);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-router.post("/members/accept", verifyToken, validateZod(respondToInviteSchema), async (req, res) => {
+router.post("/redeem-invite", verifyToken, validateZod(redeemListInviteSchema), async (req, res) => {
   const userId = req.user?.sub as UUID;
   const supabaseClient = req.supabaseClient!;
-  const { listId } = req.body;
+  const { code } = req.body;
 
   try {
-    await acceptListInvite({ supabaseClient, userId, listId });
-    return res.status(200).json({ message: "Invite accepted" });
+    const result = await redeemListInvite({ supabaseClient, userId, code });
+    return res.status(201).json({ data: result });
   } catch (err) {
-    if (err instanceof Error && err.message === "No pending invite found") {
-      return res.status(404).json({ message: err.message });
+    if (err instanceof Error) {
+      if (err.message === "Invite not found or expired") return res.status(404).json({ message: err.message });
+      if (err.message === "Cannot redeem your own invite") return res.status(403).json({ message: err.message });
+      if (err.message === "Must be friends with the list owner") return res.status(403).json({ message: err.message });
+      if (err.message === "Already a member of this list") return res.status(409).json({ message: err.message });
     }
     console.error(err);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-router.post("/members/decline", verifyToken, validateZod(respondToInviteSchema), async (req, res) => {
+router.get("/invite", verifyToken, async (req, res) => {
   const userId = req.user?.sub as UUID;
   const supabaseClient = req.supabaseClient!;
-  const { listId } = req.body;
+
+  const parsed = getListInvitesQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ message: "Invalid query parameters" });
+  }
+
+  const { listId } = parsed.data;
 
   try {
-    await declineListInvite({ supabaseClient, userId, listId });
-    return res.status(200).json({ message: "Invite declined" });
+    const invites = await getListInvites({ supabaseClient, userId, listId: listId as UUID });
+    return res.status(200).json({ data: invites });
   } catch (err) {
-    if (err instanceof Error && err.message === "No pending invite found") {
-      return res.status(404).json({ message: err.message });
+    if (err instanceof Error && err.message === "Access denied") {
+      return res.status(403).json({ message: err.message });
     }
     console.error(err);
     return res.status(500).json({ message: "Internal Server Error" });
@@ -252,19 +264,6 @@ router.get("/members", verifyToken, async (req, res) => {
     if (err instanceof Error && err.message === "Access denied") {
       return res.status(403).json({ message: err.message });
     }
-    console.error(err);
-    return res.status(500).json({ message: "Internal Server Error" });
-  }
-});
-
-router.get("/invites", verifyToken, async (req, res) => {
-  const userId = req.user?.sub as UUID;
-  const supabaseClient = req.supabaseClient!;
-
-  try {
-    const invites = await getPendingInvites({ supabaseClient, userId });
-    return res.status(200).json({ data: invites });
-  } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Internal Server Error" });
   }

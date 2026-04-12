@@ -22,7 +22,7 @@ jest.unstable_mockModule("../service/friend/friendService.js", () => ({
 const {
   createDefaultWatchlist, createList, getUserLists, deleteList, renameList,
   addListItem, removeListItem, getListItems, getListRole,
-  inviteToList, acceptListInvite, declineListInvite, removeMember, getListMembers, getPendingInvites,
+  createListInvite, redeemListInvite, getListInvites, removeMember, getListMembers,
 } = await import("../service/list/listService.js");
 const { insertInteractionEvents } = await import("../service/clickhouse/clickhouseService.js");
 const { default: updateEmbeddingQueue } = await import("../queue/updateEmbedding/updateEmbeddingQueue.js");
@@ -148,8 +148,8 @@ describe("deleteList", () => {
 
 // --- List Members ---
 
-describe("inviteToList", () => {
-  it("invites a friend to a custom list", async () => {
+describe("createListInvite", () => {
+  it("creates an invite code for a custom list", async () => {
     // getListRole: owner
     const roleSingle = jest.fn<AnyFn>().mockResolvedValue({ data: { role: "owner" }, error: null });
     const roleEq3 = jest.fn<AnyFn>().mockReturnValue({ single: roleSingle });
@@ -162,25 +162,24 @@ describe("inviteToList", () => {
     const defaultEq = jest.fn<AnyFn>().mockReturnValue({ single: defaultSingle });
     const defaultSelect = jest.fn<AnyFn>().mockReturnValue({ eq: defaultEq });
 
-    // checkIsFriends: true
-    (checkIsFriends as jest.Mock<AnyFn>).mockResolvedValueOnce(true);
-
-    // insert member
-    const memberInsert = jest.fn<AnyFn>().mockResolvedValue({ error: null });
+    // insert invite
+    const inviteInsert = jest.fn<AnyFn>().mockResolvedValue({ error: null });
 
     mockFrom
       .mockReturnValueOnce({ select: roleSelect })
       .mockReturnValueOnce({ select: defaultSelect })
-      .mockReturnValueOnce({ insert: memberInsert });
+      .mockReturnValueOnce({ insert: inviteInsert });
 
-    await inviteToList({ supabaseClient, userId, listId: "l2" as any, friendId: "friend-1" as any });
+    const result = await createListInvite({ supabaseClient, userId, listId: "l2" as any });
 
-    expect(memberInsert).toHaveBeenCalledWith(expect.objectContaining({
-      list_id: "l2", user_id: "friend-1", role: "collaborator", status: "pending",
+    expect(result.code).toBeDefined();
+    expect(result.expiresAt).toBeDefined();
+    expect(inviteInsert).toHaveBeenCalledWith(expect.objectContaining({
+      list_id: "l2", user_id: userId,
     }));
   });
 
-  it("rejects inviting to default Watchlist", async () => {
+  it("rejects invite for default Watchlist", async () => {
     const roleSingle = jest.fn<AnyFn>().mockResolvedValue({ data: { role: "owner" }, error: null });
     const roleEq3 = jest.fn<AnyFn>().mockReturnValue({ single: roleSingle });
     const roleEq2 = jest.fn<AnyFn>().mockReturnValue({ eq: roleEq3 });
@@ -195,62 +194,123 @@ describe("inviteToList", () => {
       .mockReturnValueOnce({ select: roleSelect })
       .mockReturnValueOnce({ select: defaultSelect });
 
-    await expect(inviteToList({ supabaseClient, userId, listId: "l1" as any, friendId: "f1" as any }))
+    await expect(createListInvite({ supabaseClient, userId, listId: "l1" as any }))
       .rejects.toThrow("Cannot share the default Watchlist");
   });
 
-  it("rejects inviting non-friends", async () => {
-    const roleSingle = jest.fn<AnyFn>().mockResolvedValue({ data: { role: "owner" }, error: null });
+  it("rejects non-owner", async () => {
+    const roleSingle = jest.fn<AnyFn>().mockResolvedValue({ data: null, error: { message: "not found" } });
     const roleEq3 = jest.fn<AnyFn>().mockReturnValue({ single: roleSingle });
     const roleEq2 = jest.fn<AnyFn>().mockReturnValue({ eq: roleEq3 });
     const roleEq1 = jest.fn<AnyFn>().mockReturnValue({ eq: roleEq2 });
     const roleSelect = jest.fn<AnyFn>().mockReturnValue({ eq: roleEq1 });
+    mockFrom.mockReturnValueOnce({ select: roleSelect });
 
-    const defaultSingle = jest.fn<AnyFn>().mockResolvedValue({ data: { is_default: false }, error: null });
-    const defaultEq = jest.fn<AnyFn>().mockReturnValue({ single: defaultSingle });
-    const defaultSelect = jest.fn<AnyFn>().mockReturnValue({ eq: defaultEq });
-
-    (checkIsFriends as jest.Mock<AnyFn>).mockResolvedValueOnce(false);
-
-    mockFrom
-      .mockReturnValueOnce({ select: roleSelect })
-      .mockReturnValueOnce({ select: defaultSelect });
-
-    await expect(inviteToList({ supabaseClient, userId, listId: "l2" as any, friendId: "stranger" as any }))
-      .rejects.toThrow("Can only invite friends");
+    await expect(createListInvite({ supabaseClient, userId, listId: "l2" as any }))
+      .rejects.toThrow("Access denied");
   });
 });
 
-describe("acceptListInvite", () => {
-  it("accepts a pending invite", async () => {
-    const fetchSingle = jest.fn<AnyFn>().mockResolvedValue({ data: { member_id: "m1", status: "pending" }, error: null });
-    const fetchEq3 = jest.fn<AnyFn>().mockReturnValue({ single: fetchSingle });
-    const fetchEq2 = jest.fn<AnyFn>().mockReturnValue({ eq: fetchEq3 });
-    const fetchEq1 = jest.fn<AnyFn>().mockReturnValue({ eq: fetchEq2 });
-    const fetchSelect = jest.fn<AnyFn>().mockReturnValue({ eq: fetchEq1 });
+describe("redeemListInvite", () => {
+  const ownerId = "owner-1" as any;
+  const redeemerId = "redeemer-1" as any;
 
-    const updateEq = jest.fn<AnyFn>().mockResolvedValue({ error: null });
-    const updateFn = jest.fn<AnyFn>().mockReturnValue({ eq: updateEq });
+  const mockInviteLookup = (data: any, error: any = null) => {
+    const single = jest.fn<AnyFn>().mockResolvedValue({ data, error });
+    const eq = jest.fn<AnyFn>().mockReturnValue({ single });
+    const select = jest.fn<AnyFn>().mockReturnValue({ eq });
+    return { select, eq, single };
+  };
+
+  it("redeems a valid invite and joins as collaborator", async () => {
+    const futureDate = new Date(Date.now() + 86400000).toISOString();
+
+    // lookup invite
+    const inviteLookup = mockInviteLookup({ list_id: "l2", user_id: ownerId, expires_at: futureDate });
+
+    // checkIsFriends: true
+    (checkIsFriends as jest.Mock<AnyFn>).mockResolvedValueOnce(true);
+
+    // check existing membership: not found
+    const memberSingle = jest.fn<AnyFn>().mockResolvedValue({ data: null, error: { message: "not found" } });
+    const memberEq3 = jest.fn<AnyFn>().mockReturnValue({ single: memberSingle });
+    const memberEq2 = jest.fn<AnyFn>().mockReturnValue({ eq: memberEq3 });
+    const memberEq1 = jest.fn<AnyFn>().mockReturnValue({ eq: memberEq2 });
+    const memberSelect = jest.fn<AnyFn>().mockReturnValue({ eq: memberEq1 });
+
+    // insert member
+    const memberInsert = jest.fn<AnyFn>().mockResolvedValue({ error: null });
+
+    // fetch list name
+    const listSingle = jest.fn<AnyFn>().mockResolvedValue({ data: { name: "Favorites" }, error: null });
+    const listEq = jest.fn<AnyFn>().mockReturnValue({ single: listSingle });
+    const listSelect = jest.fn<AnyFn>().mockReturnValue({ eq: listEq });
 
     mockFrom
-      .mockReturnValueOnce({ select: fetchSelect })
-      .mockReturnValueOnce({ update: updateFn });
+      .mockReturnValueOnce({ select: inviteLookup.select })  // List_Invites lookup
+      .mockReturnValueOnce({ select: memberSelect })          // List_Members check
+      .mockReturnValueOnce({ insert: memberInsert })           // List_Members insert
+      .mockReturnValueOnce({ select: listSelect });            // Lists name lookup
 
-    await acceptListInvite({ supabaseClient, userId, listId: "l2" as any });
+    const result = await redeemListInvite({ supabaseClient, userId: redeemerId, code: "abc123" });
 
-    expect(updateFn).toHaveBeenCalledWith({ status: "accepted" });
+    expect(result.listName).toBe("Favorites");
+    expect(memberInsert).toHaveBeenCalledWith(expect.objectContaining({
+      list_id: "l2", user_id: redeemerId, role: "collaborator", status: "accepted", invited_by: ownerId,
+    }));
   });
 
-  it("rejects if no pending invite", async () => {
-    const fetchSingle = jest.fn<AnyFn>().mockResolvedValue({ data: null, error: { message: "not found" } });
-    const fetchEq3 = jest.fn<AnyFn>().mockReturnValue({ single: fetchSingle });
-    const fetchEq2 = jest.fn<AnyFn>().mockReturnValue({ eq: fetchEq3 });
-    const fetchEq1 = jest.fn<AnyFn>().mockReturnValue({ eq: fetchEq2 });
-    const fetchSelect = jest.fn<AnyFn>().mockReturnValue({ eq: fetchEq1 });
-    mockFrom.mockReturnValueOnce({ select: fetchSelect });
+  it("rejects expired invite", async () => {
+    const pastDate = new Date(Date.now() - 86400000).toISOString();
+    const inviteLookup = mockInviteLookup({ list_id: "l2", user_id: ownerId, expires_at: pastDate });
 
-    await expect(acceptListInvite({ supabaseClient, userId, listId: "l2" as any }))
-      .rejects.toThrow("No pending invite found");
+    mockFrom.mockReturnValueOnce({ select: inviteLookup.select });
+
+    await expect(redeemListInvite({ supabaseClient, userId: redeemerId, code: "expired" }))
+      .rejects.toThrow("Invite not found or expired");
+  });
+
+  it("rejects self-redeem", async () => {
+    const futureDate = new Date(Date.now() + 86400000).toISOString();
+    const inviteLookup = mockInviteLookup({ list_id: "l2", user_id: ownerId, expires_at: futureDate });
+
+    mockFrom.mockReturnValueOnce({ select: inviteLookup.select });
+
+    await expect(redeemListInvite({ supabaseClient, userId: ownerId, code: "self" }))
+      .rejects.toThrow("Cannot redeem your own invite");
+  });
+
+  it("rejects non-friend of owner", async () => {
+    const futureDate = new Date(Date.now() + 86400000).toISOString();
+    const inviteLookup = mockInviteLookup({ list_id: "l2", user_id: ownerId, expires_at: futureDate });
+
+    (checkIsFriends as jest.Mock<AnyFn>).mockResolvedValueOnce(false);
+
+    mockFrom.mockReturnValueOnce({ select: inviteLookup.select });
+
+    await expect(redeemListInvite({ supabaseClient, userId: redeemerId, code: "nofriend" }))
+      .rejects.toThrow("Must be friends with the list owner");
+  });
+
+  it("rejects already-member", async () => {
+    const futureDate = new Date(Date.now() + 86400000).toISOString();
+    const inviteLookup = mockInviteLookup({ list_id: "l2", user_id: ownerId, expires_at: futureDate });
+
+    (checkIsFriends as jest.Mock<AnyFn>).mockResolvedValueOnce(true);
+
+    // existing membership found
+    const memberSingle = jest.fn<AnyFn>().mockResolvedValue({ data: { member_id: "m1" }, error: null });
+    const memberEq3 = jest.fn<AnyFn>().mockReturnValue({ single: memberSingle });
+    const memberEq2 = jest.fn<AnyFn>().mockReturnValue({ eq: memberEq3 });
+    const memberEq1 = jest.fn<AnyFn>().mockReturnValue({ eq: memberEq2 });
+    const memberSelect = jest.fn<AnyFn>().mockReturnValue({ eq: memberEq1 });
+
+    mockFrom
+      .mockReturnValueOnce({ select: inviteLookup.select })
+      .mockReturnValueOnce({ select: memberSelect });
+
+    await expect(redeemListInvite({ supabaseClient, userId: redeemerId, code: "dupe" }))
+      .rejects.toThrow("Already a member of this list");
   });
 });
 
@@ -289,17 +349,42 @@ describe("removeMember", () => {
   });
 });
 
-describe("getPendingInvites", () => {
-  it("returns pending invites for user", async () => {
-    const invites = [{ list_id: "l2", invited_by: "owner-1", created_at: "2024-01-01" }];
-    const eq2 = jest.fn<AnyFn>().mockResolvedValue({ data: invites, error: null });
-    const eq1 = jest.fn<AnyFn>().mockReturnValue({ eq: eq2 });
-    const select = jest.fn<AnyFn>().mockReturnValue({ eq: eq1 });
-    mockFrom.mockReturnValue({ select });
+describe("getListInvites", () => {
+  it("returns active invites for owner's list", async () => {
+    // getListRole: owner
+    const roleSingle = jest.fn<AnyFn>().mockResolvedValue({ data: { role: "owner" }, error: null });
+    const roleEq3 = jest.fn<AnyFn>().mockReturnValue({ single: roleSingle });
+    const roleEq2 = jest.fn<AnyFn>().mockReturnValue({ eq: roleEq3 });
+    const roleEq1 = jest.fn<AnyFn>().mockReturnValue({ eq: roleEq2 });
+    const roleSelect = jest.fn<AnyFn>().mockReturnValue({ eq: roleEq1 });
 
-    const result = await getPendingInvites({ supabaseClient, userId });
+    // query List_Invites
+    const invites = [{ code: "abc", created_at: "2024-01-01", expires_at: "2024-01-08" }];
+    const order = jest.fn<AnyFn>().mockResolvedValue({ data: invites, error: null });
+    const gt = jest.fn<AnyFn>().mockReturnValue({ order });
+    const inviteEq2 = jest.fn<AnyFn>().mockReturnValue({ gt });
+    const inviteEq1 = jest.fn<AnyFn>().mockReturnValue({ eq: inviteEq2 });
+    const inviteSelect = jest.fn<AnyFn>().mockReturnValue({ eq: inviteEq1 });
+
+    mockFrom
+      .mockReturnValueOnce({ select: roleSelect })
+      .mockReturnValueOnce({ select: inviteSelect });
+
+    const result = await getListInvites({ supabaseClient, userId, listId: "l2" as any });
 
     expect(result).toEqual(invites);
+  });
+
+  it("rejects non-owner", async () => {
+    const roleSingle = jest.fn<AnyFn>().mockResolvedValue({ data: null, error: { message: "not found" } });
+    const roleEq3 = jest.fn<AnyFn>().mockReturnValue({ single: roleSingle });
+    const roleEq2 = jest.fn<AnyFn>().mockReturnValue({ eq: roleEq3 });
+    const roleEq1 = jest.fn<AnyFn>().mockReturnValue({ eq: roleEq2 });
+    const roleSelect = jest.fn<AnyFn>().mockReturnValue({ eq: roleEq1 });
+    mockFrom.mockReturnValueOnce({ select: roleSelect });
+
+    await expect(getListInvites({ supabaseClient, userId, listId: "l2" as any }))
+      .rejects.toThrow("Access denied");
   });
 });
 
