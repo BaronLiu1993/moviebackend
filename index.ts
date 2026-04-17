@@ -17,6 +17,7 @@ import adminRouter from "./router/admin/adminRouter.js"
 import './queue/updateEmbedding/updateEmbeddingWorker.js';
 import './queue/impression/addImpressionWorker.js';
 import './queue/scrape/scrapeWorker.js';
+import './queue/training/trainingWorker.js';
 
 const app = express()
 
