@@ -106,7 +106,7 @@ router.post("/like-rating", verifyToken, validateZod(likeRatingRequestSchema), a
   const supabaseClient = req.supabaseClient!;
 
   try {
-    await likeRating({ supabaseClient, userId, ratingId });
+    await likeRating({ supabaseClient, userId, ratingId, accessToken: req.token! });
     return res.status(201).send();
   } catch (err) {
     if (err instanceof Error) {
@@ -126,7 +126,7 @@ router.delete("/like-rating", verifyToken, validateZod(unlikeRatingRequestSchema
   const supabaseClient = req.supabaseClient!;
 
   try {
-    await unlikeRating({ supabaseClient, userId, ratingId });
+    await unlikeRating({ supabaseClient, userId, ratingId, accessToken: req.token! });
     return res.status(204).send();
   } catch (err) {
     console.error(err);

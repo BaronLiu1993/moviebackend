@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 import { insertInteractionEvents } from "../clickhouse/clickhouseService.js";
+import { SIGNAL_VALUES } from "../clickhouse/signalValues.js";
 import { checkIsFriends } from "../friend/friendService.js";
 import { signImageUrls } from "../storage/signedUrl.js";
 import updateEmbeddingQueue from "../../queue/updateEmbedding/updateEmbeddingQueue.js";
@@ -155,7 +156,7 @@ export const deleteRating = async ({
 
   if (deleteError) throw new Error("Failed to delete rating");
 
-  await insertInteractionEvents({ userId, tmdbId: ratingData.tmdb_id, interactionType: "rating", rating: 0 });
+  await insertInteractionEvents({ userId, tmdbId: ratingData.tmdb_id, interactionType: "rating", rating: ratingData.rating, is_positive: false });
   await updateEmbeddingQueue.add('recompute', {
     userId,
     accessToken,
@@ -205,9 +206,10 @@ type LikeRatingType = {
   supabaseClient: SupabaseClient;
   userId: UUID;
   ratingId: UUID;
+  accessToken: string;
 };
 
-export const likeRating = async ({ supabaseClient, userId, ratingId }: LikeRatingType) => {
+export const likeRating = async ({ supabaseClient, userId, ratingId, accessToken }: LikeRatingType) => {
   try {
     const { data: rating, error: fetchError } = await supabaseClient
       .from("Ratings")
@@ -251,7 +253,11 @@ export const likeRating = async ({ supabaseClient, userId, ratingId }: LikeRatin
       rating_id: ratingId,
       film_name: rating.film_name,
       genre_ids: rating.genre_ids,
-      rating: 0,
+      rating: SIGNAL_VALUES.RATING_LIKE,
+    });
+
+    await updateEmbeddingQueue.add('recompute', {
+      userId, accessToken, operation: 'insert', tmdbId: rating.tmdb_id, rating: SIGNAL_VALUES.RATING_LIKE,
     });
   } catch (err) {
     console.error(`[likeRating] Exception:`, err);
@@ -259,7 +265,7 @@ export const likeRating = async ({ supabaseClient, userId, ratingId }: LikeRatin
   }
 };
 
-export const unlikeRating = async ({ supabaseClient, userId, ratingId }: LikeRatingType) => {
+export const unlikeRating = async ({ supabaseClient, userId, ratingId, accessToken }: LikeRatingType) => {
   try {
     const { error: deleteError } = await supabaseClient
       .from("Rating_Likes")
@@ -292,7 +298,12 @@ export const unlikeRating = async ({ supabaseClient, userId, ratingId }: LikeRat
         rating_id: ratingId,
         film_name: rating.film_name,
         genre_ids: rating.genre_ids,
-        rating: 0,
+        rating: SIGNAL_VALUES.RATING_LIKE,
+        is_positive: false,
+      });
+
+      await updateEmbeddingQueue.add('recompute', {
+        userId, accessToken, operation: 'delete', tmdbId: rating.tmdb_id, rating: SIGNAL_VALUES.RATING_LIKE,
       });
     }
   } catch (err) {

@@ -12,6 +12,7 @@ interface Interaction {
   tmdbId: number;
   interactionType: "like" | "rating" | "bookmark" | "rating_like";
   rating?: number | undefined;
+  is_positive?: boolean | undefined;
   genre_ids?: number[] | undefined;
   film_name?: string | undefined;
   rating_id?: string | undefined;
@@ -32,7 +33,7 @@ interface Impression {
 const clickhouseNow = () => new Date().toISOString().slice(0, 19).replace("T", " ");
 
 export async function insertInteractionEvents(event: Interaction) {
-  const { userId, tmdbId, interactionType, rating, genre_ids, film_name, rating_id } =
+  const { userId, tmdbId, interactionType, rating, is_positive = true, genre_ids, film_name, rating_id } =
     event;
   try {
     await client.insert({
@@ -43,6 +44,7 @@ export async function insertInteractionEvents(event: Interaction) {
           tmdb_id: tmdbId,
           interaction_type: interactionType,
           rating: rating,
+          is_positive: is_positive ? 1 : 0,
           genre_ids: genre_ids,
           film_name: film_name,
           rating_id: rating_id ?? "",
@@ -87,21 +89,38 @@ export async function generateTrainingData() {
     SELECT
       i.user_id,
       i.tmdb_id,
-      IF(ix.tmdb_id IS NOT NULL, 1, 0) AS label,
 
+      -- Label: 1 if any positive interaction within 24h of impression
+      IF(ix.max_signal > 0, 1, 0) AS label,
+
+      -- Sample weight for XGBoost (max signal strength for positives, 1.0 for negatives)
+      IF(ix.max_signal > 0, ix.max_signal, 1.0) AS sample_weight,
+
+      -- Impression context features
       i.embedding_similarity,
       i.genre_overlap,
-      i.position                        AS display_position,
-      i.surface,
-      toHour(i.created_at)              AS hour_of_day,
-      toDayOfWeek(i.created_at)         AS day_of_week,
+      i.position AS display_position,
 
+      -- Surface encoded as numeric
+      multiIf(
+        i.surface = 'feed', 0,
+        i.surface = 'search', 1,
+        i.surface = 'profile', 2,
+        i.surface = 'list', 3,
+        -1
+      ) AS surface_encoded,
+
+      toHour(i.created_at) AS hour_of_day,
+      toDayOfWeek(i.created_at) AS day_of_week,
+
+      -- User aggregate features
       countMerge(u.total_interactions)   AS user_total_interactions,
       countMerge(u.total_ratings)        AS user_total_ratings,
       countMerge(u.total_likes)          AS user_total_likes,
       countMerge(u.total_bookmarks)      AS user_total_bookmarks,
       avgMerge(u.avg_rating)             AS user_avg_rating,
 
+      -- Film aggregate features
       countMerge(f.film_total_interactions) AS film_total_interactions,
       countMerge(f.film_total_ratings)      AS film_total_ratings,
       avgMerge(f.film_avg_rating)           AS film_avg_rating,
@@ -111,18 +130,28 @@ export async function generateTrainingData() {
     FROM impressions i
 
     LEFT JOIN (
-      SELECT DISTINCT user_id, tmdb_id, created_at AS interaction_time
+      SELECT
+        user_id,
+        tmdb_id,
+        max(rating) AS max_signal,
+        min(created_at) AS first_interaction_time
       FROM interactions
+      WHERE is_positive = 1
+      GROUP BY user_id, tmdb_id
     ) ix ON i.user_id = ix.user_id
          AND i.tmdb_id = ix.tmdb_id
-         AND ix.interaction_time BETWEEN i.created_at AND i.created_at + INTERVAL 24 HOUR
+         AND ix.first_interaction_time BETWEEN i.created_at AND i.created_at + INTERVAL 24 HOUR
 
     LEFT JOIN user_features_mv u ON i.user_id = u.user_id
     LEFT JOIN film_features_mv f ON i.tmdb_id = f.tmdb_id
 
     WHERE i.created_at >= now() - INTERVAL 90 DAY
 
-    GROUP BY i.user_id, i.tmdb_id, i.embedding_similarity, i.genre_overlap, i.position, i.surface, i.created_at, label
+    GROUP BY
+      i.user_id, i.tmdb_id,
+      i.embedding_similarity, i.genre_overlap, i.position, i.surface,
+      i.created_at, label, sample_weight
+
     ORDER BY i.user_id, i.created_at
   `,
     format: "JSONEachRow",

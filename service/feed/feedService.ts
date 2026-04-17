@@ -1,10 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 import { insertInteractionEvents } from "../clickhouse/clickhouseService.js";
+import { SIGNAL_VALUES } from "../clickhouse/signalValues.js";
+import { reRankWithXGBoost } from "../ranking/rankingService.js";
 import updateEmbeddingQueue from "../../queue/updateEmbedding/updateEmbeddingQueue.js";
 import { Connection as redis } from "../../queue/redis/redis.js";
-
-const LIKE_IMPLICIT_RATING = 2;
 const FEED_CACHE_TTL_BASE = 3600;
 const FEED_CACHE_JITTER = 300;
 const FEED_CACHE_PREFIX = "feed:";
@@ -94,8 +94,8 @@ export const likeFilm = async ({ supabaseClient, userId, tmdbId, film_name, genr
       throw new Error(`Failed to like film: ${insertError.message}`);
     }
     await supabaseClient.rpc("increment_film_like_count", { p_tmdb_id: tmdbId });
-    await insertInteractionEvents({ userId, tmdbId, interactionType: "like", film_name, genre_ids, rating: 0 });
-    await updateEmbeddingQueue.add('recompute', { userId, accessToken, operation: 'insert', tmdbId, rating: LIKE_IMPLICIT_RATING });
+    await insertInteractionEvents({ userId, tmdbId, interactionType: "like", film_name, genre_ids, rating: SIGNAL_VALUES.LIKE });
+    await updateEmbeddingQueue.add('recompute', { userId, accessToken, operation: 'insert', tmdbId, rating: SIGNAL_VALUES.LIKE });
   } catch (err) {
     console.error(`[likeFilm] Exception:`, err);
     throw err;
@@ -116,8 +116,8 @@ export const unlikeFilm = async ({ supabaseClient, userId, tmdbId, accessToken }
     }
 
     await supabaseClient.rpc("decrement_film_like_count", { p_tmdb_id: tmdbId });
-    await insertInteractionEvents({ userId, tmdbId, interactionType: "like", rating: 0 });
-    await updateEmbeddingQueue.add('recompute', { userId, accessToken, operation: 'delete', tmdbId, rating: LIKE_IMPLICIT_RATING });
+    await insertInteractionEvents({ userId, tmdbId, interactionType: "like", rating: SIGNAL_VALUES.LIKE, is_positive: false });
+    await updateEmbeddingQueue.add('recompute', { userId, accessToken, operation: 'delete', tmdbId, rating: SIGNAL_VALUES.LIKE });
   } catch (err) {
     console.error(`[unlikeFilm] Exception:`, err);
     throw err;
@@ -488,7 +488,8 @@ export const getInitialFeed = async ({
   }
 
   const start = (page - 1) * pageSize;
-  const films = rankedFilms.slice(start, start + pageSize);
+  const pageFilms = rankedFilms.slice(start, start + pageSize);
+  const films = await reRankWithXGBoost(supabaseClient, userId, pageFilms);
   const hasMore = start + pageSize < rankedFilms.length;
 
   return { films, page, pageSize, hasMore };

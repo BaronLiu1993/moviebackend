@@ -1,11 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { randomBytes, type UUID } from "node:crypto";
 import { insertInteractionEvents } from "../clickhouse/clickhouseService.js";
+import { SIGNAL_VALUES } from "../clickhouse/signalValues.js";
 import { checkIsFriends } from "../friend/friendService.js";
 import { signImageUrls } from "../storage/signedUrl.js";
 import updateEmbeddingQueue from "../../queue/updateEmbedding/updateEmbeddingQueue.js";
-
-const LIST_ADD_IMPLICIT_RATING = 1;
 
 type UserRequest = {
   supabaseClient: SupabaseClient;
@@ -252,10 +251,10 @@ export const addListItem = async ({
   }
 
   await insertInteractionEvents({
-    userId, tmdbId, interactionType: "bookmark", film_name: title, genre_ids, rating: 0,
+    userId, tmdbId, interactionType: "bookmark", film_name: title, genre_ids, rating: SIGNAL_VALUES.BOOKMARK,
   });
   await updateEmbeddingQueue.add("recompute", {
-    userId, accessToken, operation: "insert", tmdbId, rating: LIST_ADD_IMPLICIT_RATING,
+    userId, accessToken, operation: "insert", tmdbId, rating: SIGNAL_VALUES.BOOKMARK,
   });
 };
 
@@ -297,9 +296,9 @@ export const removeListItem = async ({
     throw new Error(`Failed to remove film from list: ${error.message}`);
   }
 
-  await insertInteractionEvents({ userId, tmdbId, interactionType: "bookmark", rating: 0 });
+  await insertInteractionEvents({ userId, tmdbId, interactionType: "bookmark", rating: SIGNAL_VALUES.BOOKMARK, is_positive: false });
   await updateEmbeddingQueue.add("recompute", {
-    userId, accessToken, operation: "delete", tmdbId, rating: LIST_ADD_IMPLICIT_RATING,
+    userId, accessToken, operation: "delete", tmdbId, rating: SIGNAL_VALUES.BOOKMARK,
   });
 };
 
