@@ -420,6 +420,6 @@ describe("addListItem", () => {
 
     expect(insertFn).toHaveBeenCalledWith(expect.objectContaining({ tmdb_id: 42, title: "Drama" }));
     expect(insertInteractionEvents).toHaveBeenCalled();
-    expect(updateEmbeddingQueue.add).toHaveBeenCalledWith("recompute", expect.objectContaining({ rating: 1 }));
+    expect(updateEmbeddingQueue.add).toHaveBeenCalledWith("recompute", expect.objectContaining({ rating: 1.5 }));
   });
 });

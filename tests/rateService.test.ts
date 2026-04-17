@@ -158,7 +158,7 @@ describe("deleteRating", () => {
 
     await deleteRating({ ratingId, userId, supabaseClient, accessToken });
 
-    expect(insertInteractionEvents).toHaveBeenCalledWith({ userId, tmdbId: 999, interactionType: "rating", rating: 0 });
+    expect(insertInteractionEvents).toHaveBeenCalledWith({ userId, tmdbId: 999, interactionType: "rating", rating: 3, is_positive: false });
     expect(updateEmbeddingQueue.add).toHaveBeenCalledWith("recompute", {
       userId, accessToken, operation: "delete", tmdbId: 999, rating: 3,
     });
