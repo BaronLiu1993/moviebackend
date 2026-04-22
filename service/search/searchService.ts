@@ -2,13 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateFilmEmbeddings } from "../../etl/generateEmbeddings.js";
 import { applyRRF } from "../feed/feedService.js";
 import type { FilmType } from "../feed/feedService.js";
-
-const SEARCH_RRF_K = 60;
-const SEARCH_RRF_WEIGHTS = {
-  keyword: 1.0,
-  semantic: 1.0,
-};
-const SEARCH_RPC_LIMIT = 100;
+import { SEARCH_RRF_K, SEARCH_RRF_WEIGHTS, SEARCH_RPC_LIMIT } from "../../config/constants.js";
 
 type SearchParams = {
   supabaseClient: SupabaseClient;

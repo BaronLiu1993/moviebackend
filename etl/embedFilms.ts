@@ -1,9 +1,9 @@
 import { createServerSideSupabaseClient } from "../service/supabase/configureSupabase.js";
 import { buildFilmEmbeddingInput } from "./buildEmbeddingInput.js";
 import { generateFilmEmbeddings } from "./generateEmbeddings.js";
+import { EMBED_BATCH_DELAY_MS } from "../config/constants.js";
 
 const BATCH_SIZE = 100;
-const BATCH_DELAY_MS = 200;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -51,7 +51,7 @@ export const embedFilms = async () => {
     console.log(`[embedFilms] Embedded batch ${batchNum}/${totalBatches} (${batch.length} films)`);
 
     if (i + BATCH_SIZE < unembedded.length) {
-      await sleep(BATCH_DELAY_MS);
+      await sleep(EMBED_BATCH_DELAY_MS);
     }
   }
 

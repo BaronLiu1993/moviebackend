@@ -1,24 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 import { insertInteractionEvents } from "../clickhouse/clickhouseService.js";
-import { SIGNAL_VALUES } from "../clickhouse/signalValues.js";
 import { reRankWithXGBoost } from "../ranking/rankingService.js";
 import updateEmbeddingQueue from "../../queue/updateEmbedding/updateEmbeddingQueue.js";
 import { Connection as redis } from "../../queue/redis/redis.js";
-const FEED_CACHE_TTL_BASE = 3600;
-const FEED_CACHE_JITTER = 300;
-const FEED_CACHE_PREFIX = "feed:";
+import {
+  SIGNAL_VALUES, RRF_K, RRF_WEIGHTS, DIVERSITY_PENALTY,
+  FEED_CACHE_TTL_BASE, FEED_CACHE_JITTER, FEED_CACHE_PREFIX,
+  RPC_BATCH_SIZE, MAX_POOL_SIZE,
+} from "../../config/constants.js";
 
 const TMDB_API_BASE = process.env.TMDB_API_BASE!;
 const TMDB_API_KEY = process.env.TMDB_API_KEY!;
-const RRF_K = 60;
-const RRF_WEIGHTS = {
-  recommended: 1.0,
-  collaborative: 0.7,
-  popular: 0.3,
-  airing: 0.3,
-} as const;
-const DIVERSITY_PENALTY = 0.15;
 
 export type FilmType = {
   tmdb_id: number;
@@ -395,8 +388,6 @@ const getFeedTTL = () => {
   return FEED_CACHE_TTL_BASE + jitter;
 };
 
-const RPC_BATCH_SIZE = 300;
-const MAX_POOL_SIZE = 300;
 
 const buildCandidatePool = async ({
   supabaseClient,

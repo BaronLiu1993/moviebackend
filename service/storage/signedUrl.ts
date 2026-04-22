@@ -1,11 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-const SIGNED_URL_EXPIRY = 3600; // 1 hour
-
-const BUCKET_MAP: Record<string, string> = {
-  "ratings/": "rating-images",
-  "lists/": "list-images",
-};
+import { SIGNED_URL_EXPIRY, BUCKET_MAP } from "../../config/constants.js";
 
 const getBucket = (path: string): string | null => {
   for (const [prefix, bucket] of Object.entries(BUCKET_MAP)) {

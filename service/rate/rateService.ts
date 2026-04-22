@@ -1,7 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import type { UUID } from "node:crypto";
 import { insertInteractionEvents } from "../clickhouse/clickhouseService.js";
-import { SIGNAL_VALUES } from "../clickhouse/signalValues.js";
+import { SIGNAL_VALUES } from "../../config/constants.js";
 import { checkIsFriends } from "../friend/friendService.js";
 import { signImageUrls } from "../storage/signedUrl.js";
 import updateEmbeddingQueue from "../../queue/updateEmbedding/updateEmbeddingQueue.js";
@@ -86,7 +86,6 @@ export const insertRating = async ({
   if (hasImage) {
     imageUrl = `ratings/${userId}/${tmdbId}.jpg`;
   } else {
-    // Fall back to the film's poster from Guanghai
     const { data: film } = await supabaseClient
       .from("Guanghai")
       .select("photo_url")

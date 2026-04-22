@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { randomBytes, type UUID } from "node:crypto";
 import { insertInteractionEvents } from "../clickhouse/clickhouseService.js";
-import { SIGNAL_VALUES } from "../clickhouse/signalValues.js";
+import { SIGNAL_VALUES, DEFAULT_LIST_IMAGE } from "../../config/constants.js";
 import { checkIsFriends } from "../friend/friendService.js";
 import { signImageUrls } from "../storage/signedUrl.js";
 import updateEmbeddingQueue from "../../queue/updateEmbedding/updateEmbeddingQueue.js";
@@ -99,7 +99,6 @@ export const createDefaultWatchlist = async ({ supabaseClient, userId }: UserReq
   return data;
 };
 
-const DEFAULT_LIST_IMAGE = "https://image.tmdb.org/t/p/w500/placeholder.jpg";
 
 export const createList = async ({ supabaseClient, userId, name, hasImage = false }: CreateListRequest) => {
   const imagePath = hasImage ? `lists/${userId}/${Date.now()}.jpg` : null;
