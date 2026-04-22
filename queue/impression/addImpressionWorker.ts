@@ -2,6 +2,7 @@ import { Worker } from "bullmq";
 import { Connection } from "../redis/redis.js";
 import { insertImpressionEvent } from "../../service/clickhouse/clickhouseService.js";
 import { createServerSideSupabaseClient } from "../../service/supabase/configureSupabase.js";
+import log from "../../lib/logger.js";
 
 const cosineSimilarity = (a: number[], b: number[]): number => {
   if (a.length !== b.length || a.length === 0) return 0;
@@ -68,7 +69,7 @@ const worker = new Worker("impression-sync", async (job) => {
       const filmGenres: number[] = impression.genre_ids ?? [];
       genre_overlap_score = genreOverlap(userGenres, filmGenres);
     } catch (err) {
-      console.error(`[ImpressionWorker] Feature computation failed, defaulting to 0:`, err);
+      log.error({ err, userId: impression.userId, tmdbId: impression.tmdbId }, "Impression feature computation failed, defaulting to 0");
     }
 
     await insertImpressionEvent({
@@ -90,11 +91,11 @@ const worker = new Worker("impression-sync", async (job) => {
 });
 
 worker.on("failed", (job, err) => {
-    console.error(`[ImpressionWorker] Job ${job?.id} failed:`, err.message);
+    log.error({ jobId: job?.id, err: err.message }, "Impression job failed");
 });
 
 worker.on("completed", (job) => {
-    console.log(`[ImpressionWorker] Job ${job?.id} completed`);
+    log.info({ jobId: job?.id }, "Impression job completed");
 });
 
 export default worker;

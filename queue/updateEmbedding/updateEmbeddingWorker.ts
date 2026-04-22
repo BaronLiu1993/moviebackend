@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { Connection } from "../redis/redis.js";
 import { createSupabaseClient } from "../../service/supabase/configureSupabase.js";
 import type { EmbeddingJobData } from "./updateEmbeddingQueue.js";
+import log from "../../lib/logger.js";
 
 const PYTHON_SCRIPT = resolve(import.meta.dirname, "../../ranking/compute/incremental_embedding.py");
 
@@ -33,7 +34,7 @@ const worker = new Worker<EmbeddingJobData>(
   "embedding-sync",
   async (job: Job<EmbeddingJobData>) => {
     const { userId, accessToken, operation, tmdbId, rating, oldRating } = job.data;
-    console.log(`[EmbeddingWorker] ${operation} for user ${userId}, film ${tmdbId}`);
+    log.info({ jobId: job.id, operation, userId, tmdbId }, "Embedding job starting");
     const supabaseClient = createSupabaseClient({ accessToken });
     // Fetch film embedding and user state in parallel
     const [filmResult, userResult] = await Promise.all([
@@ -50,7 +51,7 @@ const worker = new Worker<EmbeddingJobData>(
     ]);
 
     if (filmResult.error || !filmResult.data?.film_embedding) {
-      console.warn(`[EmbeddingWorker] Film ${tmdbId} not in Guanghai, skipping`);
+      log.warn({ tmdbId }, "Film not in Guanghai, skipping embedding");
       return;
     }
 
@@ -90,19 +91,17 @@ const worker = new Worker<EmbeddingJobData>(
 
     if (updateError) throw new Error(`Failed to update profile: ${updateError.message}`);
 
-    console.log(
-      `[EmbeddingWorker] Done: ${operation} user=${userId} count=${result.rating_count} weight=${result.behavioral_weight_sum}`
-    );
+    log.info({ operation, userId, ratingCount: result.rating_count, weightSum: result.behavioral_weight_sum }, "Embedding update complete");
   },
   { connection: Connection, concurrency: 1 }
 );
 
 worker.on("failed", (job, err) => {
-  console.error(`[EmbeddingWorker] Job ${job?.id} failed:`, err.message);
+  log.error({ jobId: job?.id, err: err.message }, "Embedding job failed");
 });
 
 worker.on("completed", (job) => {
-  console.log(`[EmbeddingWorker] Job ${job?.id} completed`);
+  log.info({ jobId: job?.id }, "Embedding job completed");
 });
 
 export default worker;

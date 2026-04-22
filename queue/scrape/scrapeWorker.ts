@@ -2,9 +2,10 @@ import { Worker } from "bullmq";
 import { Connection } from "../redis/redis.js";
 import scrapeFilms from "../../etl/scrapeFilms.js";
 import { embedFilms } from "../../etl/embedFilms.js";
+import log from "../../lib/logger.js";
 
 const worker = new Worker("scrape", async (job) => {
-  console.log(`[ScrapeWorker] Starting pipeline`);
+  log.info({ jobId: job.id }, "Scrape pipeline starting");
 
   await job.updateProgress(10);
   await scrapeFilms();
@@ -13,18 +14,18 @@ const worker = new Worker("scrape", async (job) => {
   await embedFilms();
 
   await job.updateProgress(100);
-  console.log(`[ScrapeWorker] Pipeline complete`);
+  log.info({ jobId: job.id }, "Scrape pipeline complete");
 }, {
   connection: Connection,
   concurrency: 1,
 });
 
 worker.on("failed", (job, err) => {
-  console.error(`[ScrapeWorker] Job ${job?.id} failed:`, err.message);
+  log.error({ jobId: job?.id, err: err.message }, "Scrape job failed");
 });
 
 worker.on("completed", (job) => {
-  console.log(`[ScrapeWorker] Job ${job?.id} completed`);
+  log.info({ jobId: job?.id }, "Scrape job completed");
 });
 
 export default worker;

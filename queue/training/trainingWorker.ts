@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { resolve } from "node:path";
 import { Connection } from "../redis/redis.js";
 import { generateTrainingData } from "../../service/clickhouse/clickhouseService.js";
+import log from "../../lib/logger.js";
 
 const PYTHON_SCRIPT = resolve(import.meta.dirname, "../../ranking/training/train.py");
 
@@ -22,20 +23,21 @@ function runPython(input: object): Promise<object> {
 }
 
 const worker = new Worker("training-sync", async (job) => {
-  console.log("[TrainingWorker] Starting training pipeline...");
+  log.info({ jobId: job.id }, "Training pipeline starting");
 
   const trainingData = await generateTrainingData();
-  console.log(`[TrainingWorker] Generated ${(trainingData as any[]).length} training rows`);
+  const rowCount = (trainingData as any[]).length;
+  log.info({ jobId: job.id, rows: rowCount }, "Generated training data");
 
-  if ((trainingData as any[]).length < 100) {
-    console.warn("[TrainingWorker] Insufficient training data, skipping");
+  if (rowCount < 100) {
+    log.warn({ jobId: job.id, rows: rowCount }, "Insufficient training data, skipping");
     return;
   }
 
   await job.updateProgress(50);
 
   const result = await runPython(trainingData);
-  console.log("[TrainingWorker] Training complete:", JSON.stringify(result));
+  log.info({ jobId: job.id, result }, "Training complete");
 
   await job.updateProgress(100);
 }, {
@@ -44,11 +46,11 @@ const worker = new Worker("training-sync", async (job) => {
 });
 
 worker.on("failed", (job, err) => {
-  console.error(`[TrainingWorker] Job ${job?.id} failed:`, err.message);
+  log.error({ jobId: job?.id, err: err.message }, "Training job failed");
 });
 
 worker.on("completed", (job) => {
-  console.log(`[TrainingWorker] Job ${job?.id} completed`);
+  log.info({ jobId: job?.id }, "Training job completed");
 });
 
 export default worker;
