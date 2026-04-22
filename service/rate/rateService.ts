@@ -241,10 +241,14 @@ export const likeRating = async ({ supabaseClient, userId, ratingId, accessToken
       throw new Error("Failed to like rating");
     }
 
-    await supabaseClient
+    const { error: updateError } = await supabaseClient
       .from("Ratings")
       .update({ like_count: (rating.like_count ?? 0) + 1 })
       .eq("rating_id", ratingId);
+
+    if (updateError) {
+      console.error(`[likeRating] Failed to increment like_count:`, updateError);
+    }
 
     await insertInteractionEvents({
       userId,
@@ -286,10 +290,14 @@ export const unlikeRating = async ({ supabaseClient, userId, ratingId, accessTok
       .single();
 
     if (rating) {
-      await supabaseClient
+      const { error: updateError } = await supabaseClient
         .from("Ratings")
         .update({ like_count: Math.max((rating.like_count ?? 0) - 1, 0) })
         .eq("rating_id", ratingId);
+
+      if (updateError) {
+        console.error(`[unlikeRating] Failed to decrement like_count:`, updateError);
+      }
 
       await insertInteractionEvents({
         userId,

@@ -424,7 +424,7 @@ export const getFriendFeed = async ({
     // Get total count for hasMore
     const { count, error: countError } = await supabaseClient
       .from("Ratings")
-      .select("rating_id", { count: "exact", head: true })
+      .select("*", { count: "exact", head: true })
       .in("user_id", friendIds)
       .gte("created_at", cutoff);
 

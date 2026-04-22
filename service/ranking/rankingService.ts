@@ -32,11 +32,15 @@ function runInference(input: object): Promise<{ scores: number[] }> {
 function parseVector(v: unknown): number[] | null {
   if (v == null) return null;
   if (Array.isArray(v)) return v;
-  if (typeof v === "string") return JSON.parse(v);
+  if (typeof v === "string") {
+    try { return JSON.parse(v); }
+    catch { return null; }
+  }
   return null;
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length || a.length === 0) return 0;
   let dot = 0, magA = 0, magB = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i]! * b[i]!;

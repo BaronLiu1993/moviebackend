@@ -285,6 +285,14 @@ export const removeListItem = async ({
     }
   }
 
+  // Fetch item data before deletion for analytics
+  const { data: itemData } = await supabaseClient
+    .from("List_Items")
+    .select("title, genre_ids")
+    .eq("list_id", listId)
+    .eq("tmdb_id", tmdbId)
+    .single();
+
   const { error } = await supabaseClient
     .from("List_Items")
     .delete()
@@ -296,7 +304,10 @@ export const removeListItem = async ({
     throw new Error(`Failed to remove film from list: ${error.message}`);
   }
 
-  await insertInteractionEvents({ userId, tmdbId, interactionType: "bookmark", rating: SIGNAL_VALUES.BOOKMARK, is_positive: false });
+  await insertInteractionEvents({
+    userId, tmdbId, interactionType: "bookmark", rating: SIGNAL_VALUES.BOOKMARK, is_positive: false,
+    film_name: itemData?.title, genre_ids: itemData?.genre_ids,
+  });
   await updateEmbeddingQueue.add("recompute", {
     userId, accessToken, operation: "delete", tmdbId, rating: SIGNAL_VALUES.BOOKMARK,
   });
