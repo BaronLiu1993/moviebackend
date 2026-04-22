@@ -9,7 +9,7 @@ import { verifyToken } from "../../middleware/verifyToken.js";
 import type { UUID } from "node:crypto";
 import { registerRequestSchema, signupRequestSchema, loginRequestSchema } from "../../schemas/authSchema.js";
 import { validateZod } from "../../middleware/schemaValidation.js";
-
+import log from "../../lib/logger.js";
 
 const router = Router();
 
@@ -19,17 +19,19 @@ router.post("/signup", validateZod(signupRequestSchema), async (req, res) => {
     const result = await signUpUser({ email, password, name });
     return res.status(200).json(result);
   } catch (err: any) {
+    log.warn({ email }, "Signup failed");
     return res.status(400).json({ message: err.message || "Signup failed" });
   }
 });
 
-// Login with email/password — returns access token
 router.post("/login", validateZod(loginRequestSchema), async (req, res) => {
   const { email, password } = req.body;
   try {
     const result = await loginUser({ email, password });
+    log.info({ email }, "User logged in");
     return res.status(200).json(result);
   } catch (err: any) {
+    log.warn({ email }, "Login failed");
     return res.status(401).json({ message: err.message || "Login failed" });
   }
 });
@@ -48,7 +50,7 @@ router.put("/register", verifyToken, validateZod(registerRequestSchema), async (
     await registerUser({ userId, genres, movies, moods, dislikedGenres, movieIds, supabaseClient });
     return res.status(204).send();
   } catch (err) {
-    console.log(err)
+    log.error({ err, userId }, "Registration failed");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -70,7 +72,7 @@ router.get("/me", verifyToken, async (req, res) => {
 
     return res.status(200).json({ data });
   } catch (err) {
-    console.error(err);
+    log.error({ err, userId }, "Failed to fetch user profile");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

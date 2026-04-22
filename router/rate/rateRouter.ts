@@ -7,6 +7,7 @@ import { insertRatingRequestSchema, updateRatingRequestSchema, deleteRatingReque
 import { likeFilm, unlikeFilm } from "../../service/feed/feedService.js";
 import { likeRating, unlikeRating } from "../../service/rate/rateService.js";
 import type { UUID } from "node:crypto";
+import log from "../../lib/logger.js";
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.post("/ratings", verifyToken, validateZod(insertRatingRequestSchema), val
     const result = await insertRating({ tmdbId, userId, rating, note, name, genre_ids, supabaseClient, accessToken, hasImage });
     return res.status(201).json({ data: result });
   } catch (err) {
-    console.log(err);
+    log.error({ err, userId, tmdbId }, "Failed to insert rating");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -72,7 +73,7 @@ router.post("/like", verifyToken, validateZod(likeRequestSchema), async (req, re
   const { tmdbId, film_name, genre_ids } = req.body;
   const supabaseClient = req.supabaseClient!;
   const accessToken = req.token!;
-  console.log("hit")
+
   try {
     await likeFilm({ supabaseClient, userId, tmdbId, film_name, genre_ids, accessToken });
     return res.status(201).send();
@@ -80,7 +81,7 @@ router.post("/like", verifyToken, validateZod(likeRequestSchema), async (req, re
     if (err instanceof Error && err.message === "Already liked this film") {
       return res.status(409).json({ message: err.message });
     }
-    console.error(err);
+    log.error({ err, userId, tmdbId }, "Failed to like film");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -90,12 +91,12 @@ router.delete("/like", verifyToken, validateZod(unlikeRequestSchema), async (req
   const { tmdbId } = req.body;
   const supabaseClient = req.supabaseClient!;
   const accessToken = req.token!;
-  console.log("hit delete")
+
   try {
     await unlikeFilm({ supabaseClient, userId, tmdbId, accessToken });
     return res.status(204).send();
   } catch (err) {
-    console.error(err);
+    log.error({ err, userId, tmdbId }, "Failed to unlike film");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -115,7 +116,7 @@ router.post("/like-rating", verifyToken, validateZod(likeRatingRequestSchema), a
       if (err.message === "Users are not friends") return res.status(403).json({ message: err.message });
       if (err.message === "Already liked this rating") return res.status(409).json({ message: err.message });
     }
-    console.error(err);
+    log.error({ err, userId, ratingId }, "Failed to like rating");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -129,7 +130,7 @@ router.delete("/like-rating", verifyToken, validateZod(unlikeRatingRequestSchema
     await unlikeRating({ supabaseClient, userId, ratingId, accessToken: req.token! });
     return res.status(204).send();
   } catch (err) {
-    console.error(err);
+    log.error({ err, userId, ratingId }, "Failed to unlike rating");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

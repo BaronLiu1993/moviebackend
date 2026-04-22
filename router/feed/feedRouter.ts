@@ -8,6 +8,7 @@ import { searchQuerySchema } from "../../schemas/searchSchema.js";
 import { bulkImpressionsRequestSchema } from "../../schemas/analyticsSchema.js";
 import impressionQueue from "../../queue/impression/addImpressionQueue.js";
 import { searchFilms } from "../../service/search/searchService.js";
+import log from "../../lib/logger.js";
 
 const router = Router();
 
@@ -30,7 +31,7 @@ router.get("/generate-feed", verifyToken, async (req, res) => {
     const response = await getInitialFeed({ supabaseClient, userId, page, pageSize });
     return res.status(200).json(response);
   } catch (err) {
-    console.log(err);
+    log.error({ err, userId }, "Failed to generate feed");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -47,7 +48,7 @@ router.post("/bulk-impressions", verifyToken, validateZod(bulkImpressionsRequest
     );
     return res.status(200).json({ message: "Bulk impressions recorded" });
   } catch (err) {
-    console.error(err);
+    log.error({ err }, "Failed to record impressions");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -79,7 +80,7 @@ router.get("/search", verifyToken, async (req, res) => {
     });
     return res.status(200).json(response);
   } catch (err) {
-    console.error("[search]", err);
+    log.error({ err, q }, "Search failed");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

@@ -29,6 +29,7 @@ import {
   getListMembers,
 } from "../../service/list/listService.js";
 import type { UUID } from "node:crypto";
+import log from "../../lib/logger.js";
 
 const router = Router();
 
@@ -44,7 +45,7 @@ router.post("/", verifyToken, validateZod(createListSchema), async (req, res) =>
     if (err instanceof Error && err.message === "A list with this name already exists") {
       return res.status(409).json({ message: err.message });
     }
-    console.error(err);
+    log.error({ err }, "List router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -57,7 +58,7 @@ router.get("/", verifyToken, async (req, res) => {
     const lists = await getUserLists({ supabaseClient, userId });
     return res.status(200).json({ data: lists });
   } catch (err) {
-    console.error(err);
+    log.error({ err }, "List router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -75,7 +76,7 @@ router.delete("/", verifyToken, validateZod(deleteListSchema), async (req, res) 
       if (err.message === "Access denied") return res.status(403).json({ message: err.message });
       if (err.message === "Cannot delete the default Watchlist") return res.status(403).json({ message: err.message });
     }
-    console.error(err);
+    log.error({ err }, "List router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -94,7 +95,7 @@ router.put("/", verifyToken, validateZod(renameListSchema), async (req, res) => 
       if (err.message === "Cannot rename the default Watchlist") return res.status(403).json({ message: err.message });
       if (err.message === "A list with this name already exists") return res.status(409).json({ message: err.message });
     }
-    console.error(err);
+    log.error({ err }, "List router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -114,7 +115,7 @@ router.post("/items", verifyToken, validateZod(addListItemSchema), async (req, r
       if (err.message === "Access denied") return res.status(403).json({ message: err.message });
       if (err.message === "Film already in this list") return res.status(409).json({ message: err.message });
     }
-    console.error(err);
+    log.error({ err }, "List router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -133,7 +134,7 @@ router.delete("/items", verifyToken, validateZod(removeListItemSchema), async (r
       if (err.message === "Access denied") return res.status(403).json({ message: err.message });
       if (err.message === "Can only remove items you added") return res.status(403).json({ message: err.message });
     }
-    console.error(err);
+    log.error({ err }, "List router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -156,7 +157,7 @@ router.get("/items", verifyToken, async (req, res) => {
     if (err instanceof Error && err.message === "Access denied") {
       return res.status(403).json({ message: err.message });
     }
-    console.error(err);
+    log.error({ err }, "List router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -180,7 +181,7 @@ router.post("/invite", verifyToken, validateZod(createListInviteSchema), async (
       if (err.message === "Access denied") return res.status(403).json({ message: err.message });
       if (err.message === "Cannot share the default Watchlist") return res.status(403).json({ message: err.message });
     }
-    console.error(err);
+    log.error({ err }, "List router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -200,7 +201,7 @@ router.post("/redeem-invite", verifyToken, validateZod(redeemListInviteSchema), 
       if (err.message === "Must be friends with the list owner") return res.status(403).json({ message: err.message });
       if (err.message === "Already a member of this list") return res.status(409).json({ message: err.message });
     }
-    console.error(err);
+    log.error({ err }, "List router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -223,7 +224,7 @@ router.get("/invite", verifyToken, async (req, res) => {
     if (err instanceof Error && err.message === "Access denied") {
       return res.status(403).json({ message: err.message });
     }
-    console.error(err);
+    log.error({ err }, "List router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -241,7 +242,7 @@ router.delete("/members", verifyToken, validateZod(removeMemberSchema), async (r
       if (err.message === "Access denied") return res.status(403).json({ message: err.message });
       if (err.message === "Cannot remove yourself as owner") return res.status(400).json({ message: err.message });
     }
-    console.error(err);
+    log.error({ err }, "List router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -264,7 +265,7 @@ router.get("/members", verifyToken, async (req, res) => {
     if (err instanceof Error && err.message === "Access denied") {
       return res.status(403).json({ message: err.message });
     }
-    console.error(err);
+    log.error({ err }, "List router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

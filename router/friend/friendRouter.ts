@@ -17,6 +17,7 @@ import type { UUID } from "node:crypto";
 import { verifyToken } from "../../middleware/verifyToken.js";
 import { validateZod } from "../../middleware/schemaValidation.js";
 import { sendFriendRequestSchema, acceptFriendRequestSchema, declineFriendRequestSchema, removeFriendSchema, getProfileQuerySchema, paginationQuerySchema, redeemInviteSchema } from "../../schemas/friendSchema.js";
+import log from "../../lib/logger.js";
 
 const router = Router();
 
@@ -176,7 +177,7 @@ router.get("/feed", verifyToken, async (req, res) => {
     const data = await getFriendFeed({ supabaseClient, userId, ...parsed.data });
     return res.status(200).json(data);
   } catch (err) {
-    console.error(err);
+    log.error({ err }, "Friend router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -196,7 +197,7 @@ router.post("/invite", verifyToken, async (req, res) => {
       expiresAt: invite.expiresAt,
     });
   } catch (err) {
-    console.error(err);
+    log.error({ err }, "Friend router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -209,7 +210,7 @@ router.get("/invite", verifyToken, async (req, res) => {
     const invites = await getActiveInvites({ supabaseClient, userId });
     return res.status(200).json({ data: invites });
   } catch (err) {
-    console.error(err);
+    log.error({ err }, "Friend router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -228,7 +229,7 @@ router.post("/redeem-invite", verifyToken, validateZod(redeemInviteSchema), asyn
       if (err.message === "Cannot redeem your own invite") return res.status(403).json({ message: err.message });
       if (err.message === "Already friends") return res.status(409).json({ message: err.message });
     }
-    console.error(err);
+    log.error({ err }, "Friend router error");
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
