@@ -9,10 +9,8 @@ const worker = new Worker("scrape", async (job) => {
 
   await job.updateProgress(10);
   await scrapeFilms();
-
   await job.updateProgress(50);
   await embedFilms();
-
   await job.updateProgress(100);
   log.info({ jobId: job.id }, "Scrape pipeline complete");
 }, {

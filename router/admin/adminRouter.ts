@@ -8,9 +8,7 @@ const router = Router();
 
 router.post("/scrape", verifyAdminToken, async (_req, res) => {
   try {
-    await scrapeQueue.add("scrape-films", {
-      
-    });
+    await scrapeQueue.add("scrape-films", {triggeredBy: "manual"});
     return res.status(202).json({ message: "Scrape job enqueued" });
   } catch (err) {
     log.error({ err }, "Failed to enqueue scrape job");
