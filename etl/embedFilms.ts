@@ -2,6 +2,7 @@ import { createServerSideSupabaseClient } from "../service/supabase/configureSup
 import { buildFilmEmbeddingInput } from "./buildEmbeddingInput.js";
 import { generateFilmEmbeddings } from "./generateEmbeddings.js";
 import { EMBED_BATCH_DELAY_MS } from "../config/constants.js";
+import log from "../lib/logger.js";
 
 const BATCH_SIZE = 100;
 
@@ -21,11 +22,11 @@ export const embedFilms = async () => {
   }
 
   if (!unembedded || unembedded.length === 0) {
-    console.log("[embedFilms] No unembedded films found");
+    log.info("No unembedded films found");
     return;
   }
 
-  console.log(`[embedFilms] Found ${unembedded.length} films to embed`);
+  log.info({ count: unembedded.length }, "Found films to embed");
 
   const totalBatches = Math.ceil(unembedded.length / BATCH_SIZE);
 
@@ -44,16 +45,16 @@ export const embedFilms = async () => {
         .eq("tmdb_id", batch[j]!.tmdb_id);
 
       if (updateError) {
-        console.error(`[embedFilms] Failed to update tmdb_id=${batch[j]!.tmdb_id}:`, updateError.message);
+        log.error({ tmdbId: batch[j]!.tmdb_id, err: updateError.message }, "Failed to update film embedding");
       }
     }
 
-    console.log(`[embedFilms] Embedded batch ${batchNum}/${totalBatches} (${batch.length} films)`);
+    log.info({ batchNum, totalBatches, count: batch.length }, "Embedded batch");
 
     if (i + BATCH_SIZE < unembedded.length) {
       await sleep(EMBED_BATCH_DELAY_MS);
     }
   }
 
-  console.log(`[embedFilms] Done — embedded ${unembedded.length} films`);
+  log.info({ embedded: unembedded.length }, "Embedding pipeline complete");
 };
