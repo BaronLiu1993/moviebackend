@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import { Redis } from "ioredis";
+import logger from "../../lib/logger.js";
 
 dotenv.config();
 
@@ -36,21 +37,21 @@ export const Connection = typeof redisConfig === 'string'
   : new Redis({ ...redisConfig, ...redisOptions });
 
 Connection.on('connect', () => {
-  console.log('Redis connected successfully');
+  logger.info('Redis connected successfully');
 });
 
 Connection.on('error', (err) => {
-  console.error('Redis connection error:', err);
+  logger.error({ err }, 'Redis connection error');
 });
 
 Connection.on('ready', () => {
-  console.log('Redis ready to accept commands');
+  logger.info('Redis ready to accept commands');
 });
 
 Connection.on('reconnecting', () => {
-  console.log('Redis reconnecting...');
+  logger.warn('Redis reconnecting...');
 });
 
 Connection.on('close', () => {
-  console.log('Redis connection closed');
+  logger.warn('Redis connection closed');
 });
